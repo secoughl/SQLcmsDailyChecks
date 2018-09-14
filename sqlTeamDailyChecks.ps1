@@ -100,88 +100,87 @@ Function Send-DailyChecks {
 
 #Query Variables
 $allQuery = "select server_name from msdb.dbo.sysmanagement_shared_registered_servers 
-    where server_group_id not in ('26','27','28') and server_name not like '%OFF%'"
-$testQuery = "select server_name from msdb.dbo.sysmanagement_shared_registered_servers "+
-    "where server_name like 'Server_Name_here'"
+            where server_group_id not in ('26','27','28') and server_name not like '%OFF%'"
+$testQuery = "select server_name from msdb.dbo.sysmanagement_shared_registered_servers 
+             where server_name like 'Server_Name_here'"
 $avgQuery = "if exists (select name from sys.sysobjects where name = 'dm_hadr_availability_replica_states')
-select rcs.replica_server_name
-       , sag.name as avg_name
-       , db_name(drs.database_id) as 'DB_Name'
-       , rs.role_desc as 'Server_Role_Desc'
-       , rs.connected_state_desc as 'Server_connected_state'
-       , rs.synchronization_health_desc as 'server_sync_health'
-       , drs.synchronization_state_desc as 'db_synch_sTate'
-       , drs.synchronization_health_desc as 'db_sync_health'
-       , mf.size/128 as sizemb
+            select rcs.replica_server_name
+                   , sag.name as avg_name
+                   , db_name(drs.database_id) as 'DB_Name'
+                   , rs.role_desc as 'Server_Role_Desc'
+                   , rs.connected_state_desc as 'Server_connected_state'
+                   , rs.synchronization_health_desc as 'server_sync_health'
+                   , drs.synchronization_state_desc as 'db_synch_sTate'
+                   , drs.synchronization_health_desc as 'db_sync_health'
+                   , mf.size/128 as sizemb
 
-from
-       sys.dm_hadr_availability_replica_states rs
-join sys.dm_hadr_availability_replica_cluster_states rcs
-       on rcs.replica_id = rs.replica_id
-join sys.dm_hadr_database_replica_states drs
-       on rs.replica_id = drs.replica_id
-join sys.master_files mf on mf.database_id = drs.database_id and type_desc = 'ROWS'
-join sys.availability_groups sag on sag.group_id = rs.group_id
+            from
+                   sys.dm_hadr_availability_replica_states rs
+            join sys.dm_hadr_availability_replica_cluster_states rcs
+                   on rcs.replica_id = rs.replica_id
+            join sys.dm_hadr_database_replica_states drs
+                   on rs.replica_id = drs.replica_id
+            join sys.master_files mf on mf.database_id = drs.database_id and type_desc = 'ROWS'
+            join sys.availability_groups sag on sag.group_id = rs.group_id
 
-where
-drs.synchronization_health_desc not like 'HEALTHY'"
+            where
+            drs.synchronization_health_desc not like 'HEALTHY'"
 $jobQuery = ";WITH CTE_MostRecentJobRun AS  
- (  
- -- For each job get the most recent run (this will be the one where Rnk=1)  
- SELECT job_id,run_status,run_date,run_time  
- ,RANK() OVER (PARTITION BY job_id ORDER BY run_date DESC,run_time DESC) AS Rnk  
- FROM msdb.dbo.sysjobhistory  
- WHERE step_id=0  
- )  
-SELECT   
-  @@servername as Server_name
-  ,name  AS [Job_Name]
-,CONVERT(VARCHAR,DATEADD(S,(run_time/10000)*60*60 /* hours */  
-  +((run_time - (run_time/10000) * 10000)/100) * 60 /* mins */  
-  + (run_time - (run_time/100) * 100)  /* secs */,  
-  CONVERT(DATETIME,RTRIM(run_date),113)),100) AS [Time_Run] 
- ,CASE WHEN enabled=1 THEN 'Enabled'  
-     ELSE 'Disabled'  
-  END [Job Status]
-FROM     CTE_MostRecentJobRun MRJR  
-JOIN     msdb.dbo.sysjobs SJ  
-ON       MRJR.job_id=sj.job_id  
-WHERE    Rnk=1  
-AND name like 'DBA%'
-AND      run_status=0 -- i.e. failed  
-ORDER BY name  "
+             (  
+             -- For each job get the most recent run (this will be the one where Rnk=1)  
+             SELECT job_id,run_status,run_date,run_time  
+             ,RANK() OVER (PARTITION BY job_id ORDER BY run_date DESC,run_time DESC) AS Rnk  
+             FROM msdb.dbo.sysjobhistory  
+             WHERE step_id=0  
+             )  
+            SELECT   
+              @@servername as Server_name
+              ,name  AS [Job_Name]
+            ,CONVERT(VARCHAR,DATEADD(S,(run_time/10000)*60*60 /* hours */  
+              +((run_time - (run_time/10000) * 10000)/100) * 60 /* mins */  
+              + (run_time - (run_time/100) * 100)  /* secs */,  
+              CONVERT(DATETIME,RTRIM(run_date),113)),100) AS [Time_Run] 
+             ,CASE WHEN enabled=1 THEN 'Enabled'  
+                 ELSE 'Disabled'  
+              END [Job Status]
+            FROM     CTE_MostRecentJobRun MRJR  
+            JOIN     msdb.dbo.sysjobs SJ  
+            ON       MRJR.job_id=sj.job_id  
+            WHERE    Rnk=1  
+            AND name like 'DBA%'
+            AND      run_status=0 -- i.e. failed  
+            ORDER BY name  "
 $dbaJobQuery = "select @@servername as [Server_Name], name as [Name], date_modified as [Date_Modified] 
-from msdb.dbo.sysjobs where name like '%DBA%' and enabled <> 1"
-$retentionQuery = "
-IF OBJECT_ID('tempdb..#retention_checks') IS NOT NULL DROP TABLE #retention_checks
+                from msdb.dbo.sysjobs where name like '%DBA%' and enabled <> 1"
+$retentionQuery = "IF OBJECT_ID('tempdb..#retention_checks') IS NOT NULL DROP TABLE #retention_checks
 
-select d.name as DatabaseName, d.recovery_model_desc as RecoveryModel,
-       getdate() as LastFULLBackupDate,
-       0 as FULLBackup_DaysOld,
-       getdate() as LastDIFFBackupDate,
-       0 as DIFFBackup_DaysOld,
-       getdate() as LastLOGBackupDate,
-       0 as LOGBackup_MinutesOld
-       into #retention_checks
-from sys.databases d
-where d.name <> 'tempdb'
-and d.state_desc = 'ONLINE'
-and sys.fn_hadr_backup_is_preferred_replica (d.name) = 1;
+                select d.name as DatabaseName, d.recovery_model_desc as RecoveryModel,
+                       getdate() as LastFULLBackupDate,
+                       0 as FULLBackup_DaysOld,
+                       getdate() as LastDIFFBackupDate,
+                       0 as DIFFBackup_DaysOld,
+                       getdate() as LastLOGBackupDate,
+                       0 as LOGBackup_MinutesOld
+                       into #retention_checks
+                from sys.databases d
+                where d.name <> 'tempdb'
+                and d.state_desc = 'ONLINE'
+                and sys.fn_hadr_backup_is_preferred_replica (d.name) = 1;
+                
+
+                update #retention_checks set LastFullBackupDate = isnull((select MAX(backup_finish_date) from msdb..backupset where type = 'D' and #retention_checks.databasename = database_name ),'2000-01-01 00:00:00.001');
+                update #retention_checks set LastDIFFBackupDate = isnull((select MAX(backup_finish_date) from msdb..backupset where type = 'i' and #retention_checks.databasename = database_name ),'2000-01-01 00:00:00.001');
+                update #retention_checks set LastLOGBackupDate = isnull((select MAX(backup_finish_date) from msdb..backupset where type = 'l' and #retention_checks.databasename = database_name ),'2000-01-01 00:00:00.001');
 
 
-update #retention_checks set LastFullBackupDate = isnull((select MAX(backup_finish_date) from msdb..backupset where type = 'D' and #retention_checks.databasename = database_name ),'2000-01-01 00:00:00.001');
-update #retention_checks set LastDIFFBackupDate = isnull((select MAX(backup_finish_date) from msdb..backupset where type = 'i' and #retention_checks.databasename = database_name ),'2000-01-01 00:00:00.001');
-update #retention_checks set LastLOGBackupDate = isnull((select MAX(backup_finish_date) from msdb..backupset where type = 'l' and #retention_checks.databasename = database_name ),'2000-01-01 00:00:00.001');
+                update #retention_checks set FULLBackup_DaysOld = DATEDIFF(dd, LastFullBackupdate, GETDATE());
+                update #retention_checks set DIFFBackup_DaysOld = DATEDIFF(dd, LastDIFFBackupDate, GETDATE());
+                update #retention_checks set LogBackup_MinutesOld = DATEDIFF(mi, LastLOGBackupDate, GETDATE());
 
-
-update #retention_checks set FULLBackup_DaysOld = DATEDIFF(dd, LastFullBackupdate, GETDATE());
-update #retention_checks set DIFFBackup_DaysOld = DATEDIFF(dd, LastDIFFBackupDate, GETDATE());
-update #retention_checks set LogBackup_MinutesOld = DATEDIFF(mi, LastLOGBackupDate, GETDATE());
-
-select @@servername as server_name,* from #retention_checks 
-where ( (FULLBackup_DaysOld > 7) OR (DIFFBackup_DaysOld > 2 and databasename not like 'master') OR (LogBackup_MinutesOld > 100 and RecoveryModel like 'FULL') )
-order by DatabaseName;
-"
+                select @@servername as server_name,* from #retention_checks 
+                where ( (FULLBackup_DaysOld > 7) OR (DIFFBackup_DaysOld > 2 and databasename not like 'master') OR (LogBackup_MinutesOld > 100 and RecoveryModel like 'FULL') )
+                order by DatabaseName;
+                "
 
 
 #Formatting variables for CSV output (which are then read back in for emailing)
