@@ -194,14 +194,14 @@ $fullRetentionFormat = 'Server_Name', 'DatabaseName', 'FullBackup_DaysOld', 'Dif
 cd c:
 
 #Path Variables
-$reportPath = "\\netapp.domain.mil\backupshare$\Automation\"
+$reportPath = "\\netapp.domain.mil\backupshare$\Automation\reports\"
 $avgOutputFile = $reportPath + "agDailyReport.txt"
 $mountSpaceOutputFile = $reportPath + "diskReporting.txt"
 $jobOutputFile = $reportPath + "jobFails.txt"
 $dbaJobOutputFile = $reportPath + "dbaJobFails.txt" 
 $fullRetentionOutputFile = $reportPath + "fullRetention.txt"
-$bodyUpper = Get-Content $reportPath"bodyUpper.txt" -raw
-$bodyLower = Get-Content $reportPath"bodyLower.txt" -raw
+$bodyUpper = Get-Content $reportPath"html\bodyUpper.txt" -raw
+$bodyLower = Get-Content $reportPath"html\bodyLower.txt" -raw
 
 $smtp = "smtp-relay.domain.mil"
 $sendToAll = "<Database_Distro@domain.mil>"
