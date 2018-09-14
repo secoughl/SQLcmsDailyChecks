@@ -15,7 +15,7 @@ function Invoke-DailyCheck {
     )
     Clear-Content $outputFile
     $jobMessage = @()
-    $jobSqlServers = invoke-sqlcmd -query $scope -ServerInstance $cms -ConnectionTimeout 10 | select server_name
+    $jobSqlServers = invoke-sqlcmd -query $scope -ServerInstance $cms -ConnectionTimeout 10 | Select-Object server_name
 
     foreach ($jobSqlServer in $jobSqlServers.server_name) {
 
@@ -37,7 +37,7 @@ function Get-InstanceDisks {
     )
     Clear-Content $outputFile
     $messageArray = @()
-    $mountedServers = invoke-sqlcmd -query $scope -ServerInstance $cms -ConnectionTimeout 10 | select server_name
+    $mountedServers = invoke-sqlcmd -query $scope -ServerInstance $cms -ConnectionTimeout 10 | Select-Object server_name
     Foreach ($mountedServer in $mountedServers.server_name) {
 
         if ((Test-Connection -Quiet $mountedServer.Split('\')[0]) -eq - $true) {
@@ -48,7 +48,7 @@ function Get-InstanceDisks {
                 "Error grabbing Volumes from $mountedServer"
                 Continue
             }
-            $messageObj = "" | select $format
+            $messageObj = "" | Select-Object $format
             Foreach ($Volume in $Volumes) {
 
                 If ($Volume.Label -ne "System Reserved" -or $Volume.Label -ne "System") {
@@ -194,14 +194,14 @@ $fullRetentionFormat = 'Server_Name', 'DatabaseName', 'FullBackup_DaysOld', 'Dif
 cd c:
 
 #Path Variables
-$reportPath = "\\netapp.domain.mil\backupshare$\Automation\"
+$reportPath = "\\netapp.domain.mil\backupshare$\Automation\reports\"
 $avgOutputFile = $reportPath + "agDailyReport.txt"
 $mountSpaceOutputFile = $reportPath + "diskReporting.txt"
 $jobOutputFile = $reportPath + "jobFails.txt"
 $dbaJobOutputFile = $reportPath + "dbaJobFails.txt" 
 $fullRetentionOutputFile = $reportPath + "fullRetention.txt"
-$bodyUpper = Get-Content $reportPath"bodyUpper.txt" -raw
-$bodyLower = Get-Content $reportPath"bodyLower.txt" -raw
+$bodyUpper = Get-Content $reportPath"html\bodyUpper.txt" -raw
+$bodyLower = Get-Content $reportPath"html\bodyLower.txt" -raw
 
 $smtp = "smtp-relay.domain.mil"
 $sendToAll = "<Database_Distro@domain.mil>"
