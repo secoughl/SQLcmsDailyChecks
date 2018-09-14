@@ -15,7 +15,7 @@ function Invoke-DailyCheck {
     )
     Clear-Content $outputFile
     $jobMessage = @()
-    $jobSqlServers = invoke-sqlcmd -query $scope -ServerInstance $cms -ConnectionTimeout 10 | select server_name
+    $jobSqlServers = invoke-sqlcmd -query $scope -ServerInstance $cms -ConnectionTimeout 10 | Select-Object server_name
 
     foreach ($jobSqlServer in $jobSqlServers.server_name) {
 
@@ -37,7 +37,7 @@ function Get-InstanceDisks {
     )
     Clear-Content $outputFile
     $messageArray = @()
-    $mountedServers = invoke-sqlcmd -query $scope -ServerInstance $cms -ConnectionTimeout 10 | select server_name
+    $mountedServers = invoke-sqlcmd -query $scope -ServerInstance $cms -ConnectionTimeout 10 | Select-Object server_name
     Foreach ($mountedServer in $mountedServers.server_name) {
 
         if ((Test-Connection -Quiet $mountedServer.Split('\')[0]) -eq - $true) {
@@ -48,7 +48,7 @@ function Get-InstanceDisks {
                 "Error grabbing Volumes from $mountedServer"
                 Continue
             }
-            $messageObj = "" | select $format
+            $messageObj = "" | Select-Object $format
             Foreach ($Volume in $Volumes) {
 
                 If ($Volume.Label -ne "System Reserved" -or $Volume.Label -ne "System") {
