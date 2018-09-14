@@ -1,99 +1,109 @@
 #Pull in the needed
-[System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.Smo") |Out-Null
-import-module sqlps -DisableNameChecking
+#[System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.Smo") |Out-Null
+try {
+    import-module sqlps -DisableNameChecking    
+}
+catch {
+    "Problem importing sqlps, please ensure it exists"
+}
+
 
 function Invoke-DailyCheck {
-[cmdletbinding()]
-param(
-[string] $Query,$outputFile, $scope, $format,$cms, $checkname
-)
-Clear-Content $outputFile
-$jobMessage = @()
-$jobSqlServers = invoke-sqlcmd -query $scope -ServerInstance $cms -ConnectionTimeout 10 | select server_name
+    [cmdletbinding()]
+    param(
+        [string] $Query, $outputFile, $scope, $format, $cms, $checkname
+    )
+    Clear-Content $outputFile
+    $jobMessage = @()
+    $jobSqlServers = invoke-sqlcmd -query $scope -ServerInstance $cms -ConnectionTimeout 10 | select server_name
 
-foreach ($jobSqlServer in $jobSqlServers.server_name){
+    foreach ($jobSqlServer in $jobSqlServers.server_name) {
 
-    try{
-    $jobMessageTemp = invoke-sqlcmd -query $Query -ServerInstance $jobSqlServer -ConnectionTimeout 10 -erroraction silentlycontinue | Select-Object $format
-    $jobMessage+=$jobMessageTemp
-    }
+        try {
+            $jobMessageTemp = invoke-sqlcmd -query $Query -ServerInstance $jobSqlServer -ConnectionTimeout 10 -erroraction silentlycontinue | Select-Object $format
+            $jobMessage += $jobMessageTemp
+        }
         catch {"couldn't connect to $jobSqlServer during $checkname"}
 
-    finally{$jobMessage | Export-Csv $outputFile -NoTypeInformation -ErrorAction SilentlyContinue}
-    }}
-
-function Get-InstanceDisks{
-[cmdletbinding()]
-param(
-[string]$scope,$cms,$outputFile, $format,
-[decimal]$cutoff
-)
-Clear-Content $outputFile
-$messageArray = @()
-$mountedServers = invoke-sqlcmd -query $scope -ServerInstance $cms -ConnectionTimeout 10 | select server_name
-Foreach ($mountedServer in $mountedServers.server_name) {
-
-if ((Test-Connection -Quiet $mountedServer.Split('\')[0]) -eq -$true){
-    Try{
-    $Volumes = Get-WmiObject -ComputerName $mountedServer.Split('\')[0] win32_volume | Where-Object {$_.Capacity -gt 0}
+        finally {$jobMessage | Export-Csv $outputFile -NoTypeInformation -ErrorAction SilentlyContinue}
     }
-        catch {
-        "Error grabbing Volumes from $mountedServer"
-        Continue
-        }
-$messageObj = "" | select $format
-Foreach ($Volume in $Volumes){
-
-If ($Volume.Label -ne "System Reserved" -or $Volume.Label -ne "System"){
-$FreeSpace = ([math]::round(($Volume.FreeSpace / 1073741824),2))
-$TotalSpace = ([math]::round(($Volume.Capacity / 1073741824),2))
-$UsedPercentage = 100-(($FreeSpace/$TotalSpace)*100)
-$driveName = $Volume.Label -replace ' ',''
-
-$messageObj.Server_name = $mountedServer
-$messageObj.UsedPercentage = $UsedPercentage
-$messageObj.driveName = $driveName
-
-
-If ($messageObj.UsedPercentage -gt $cutoff){
-$messageArray += $messageObj | Select-Object $format
 }
-}}
 
-$messageArray | Sort-Object -Property UsedPercentage -Descending| Export-Csv $outputFile -NoTypeInformation -ErrorAction SilentlyContinue }}
+function Get-InstanceDisks {
+    [cmdletbinding()]
+    param(
+        [string]$scope, $cms, $outputFile, $format,
+        [decimal]$cutoff
+    )
+    Clear-Content $outputFile
+    $messageArray = @()
+    $mountedServers = invoke-sqlcmd -query $scope -ServerInstance $cms -ConnectionTimeout 10 | select server_name
+    Foreach ($mountedServer in $mountedServers.server_name) {
+
+        if ((Test-Connection -Quiet $mountedServer.Split('\')[0]) -eq - $true) {
+            Try {
+                $Volumes = Get-WmiObject -ComputerName $mountedServer.Split('\')[0] win32_volume | Where-Object {$_.Capacity -gt 0}
+            }
+            catch {
+                "Error grabbing Volumes from $mountedServer"
+                Continue
+            }
+            $messageObj = "" | select $format
+            Foreach ($Volume in $Volumes) {
+
+                If ($Volume.Label -ne "System Reserved" -or $Volume.Label -ne "System") {
+                    $FreeSpace = ([math]::round(($Volume.FreeSpace / 1073741824), 2))
+                    $TotalSpace = ([math]::round(($Volume.Capacity / 1073741824), 2))
+                    $UsedPercentage = 100 - (($FreeSpace / $TotalSpace) * 100)
+                    $driveName = $Volume.Label -replace ' ', ''
+
+                    $messageObj.Server_name = $mountedServer
+                    $messageObj.UsedPercentage = $UsedPercentage
+                    $messageObj.driveName = $driveName
+
+
+                    If ($messageObj.UsedPercentage -gt $cutoff) {
+                        $messageArray += $messageObj | Select-Object $format
+                    }
+                }
+            }
+
+            $messageArray | Sort-Object -Property UsedPercentage -Descending| Export-Csv $outputFile -NoTypeInformation -ErrorAction SilentlyContinue 
+        }
+    }
 
 }
 
 Function Send-DailyChecks {
-[cmdletbinding()]
-Param (
-[string] $reportDirectory, $sendTo, $SMTPRelay,$fromAddress
-)
+    [cmdletbinding()]
+    Param (
+        [string] $reportDirectory, $sendTo, $SMTPRelay, $fromAddress
+    )
 
-cd c:
-$anonUsername = "anonymous"
-$anonPassword = ConvertTo-SecureString "anonymous" -AsPlainText -Force
-$anonCredentials = New-Object System.Management.Automation.PSCredential($anonUsername,$anonPassword)
-$Subject = "SQL Daily Checks Completed, see attached"
+    cd c:
+    $anonUsername = "anonymous"
+    $anonPassword = ConvertTo-SecureString "anonymous" -AsPlainText -Force
+    $anonCredentials = New-Object System.Management.Automation.PSCredential($anonUsername, $anonPassword)
+    $Subject = "SQL Daily Checks Completed, see attached"
 
-$Body = $bodyUpper+
-"<BR>"+"<b>Failed AG DBs:</b><BR>"+(import-csv -path $avgOutputFile| convertto-html -fragment)+
-"<BR>"+"<b>Jobs that failed their last run:</b><BR>"+(import-csv -path $jobOutputFile | ConvertTo-Html -Fragment)+
-"<BR>"+"<b>Disabled DBA Jobs:</b><BR>"+(import-csv -path $dbaJobOutputFile | ConvertTo-Html -Fragment)+
-"<BR>"+"<b>Disks over 80%:</b><BR>"+(import-csv -path $mountSpaceOutputFile | ConvertTo-Html -Fragment)+
-"<BR>"+"<b>Backups out of Retention:</b><BR>"+(import-csv -path $fullRetentionOutputFile | ConvertTo-Html -Fragment)+
-$bodyLower
+    $Body = $bodyUpper +
+    "<BR>" + "<b>Failed AG DBs:</b><BR>" + (import-csv -path $avgOutputFile| convertto-html -fragment) +
+    "<BR>" + "<b>Jobs that failed their last run:</b><BR>" + (import-csv -path $jobOutputFile | ConvertTo-Html -Fragment) +
+    "<BR>" + "<b>Disabled DBA Jobs:</b><BR>" + (import-csv -path $dbaJobOutputFile | ConvertTo-Html -Fragment) +
+    "<BR>" + "<b>Disks over 80%:</b><BR>" + (import-csv -path $mountSpaceOutputFile | ConvertTo-Html -Fragment) +
+    "<BR>" + "<b>Backups out of Retention:</b><BR>" + (import-csv -path $fullRetentionOutputFile | ConvertTo-Html -Fragment) +
+    $bodyLower
 
-Send-MailMessage -From $fromAddress -to $SendTo -Subject $Subject -Bodyashtml $Body -SmtpServer $SMTPRelay -Credential $anonCredentials
+    Send-MailMessage -From $fromAddress -to $SendTo -Subject $Subject -Bodyashtml $Body -SmtpServer $SMTPRelay -Credential $anonCredentials
 }
 
 
 #Query Variables
 $allQuery = "select server_name from msdb.dbo.sysmanagement_shared_registered_servers 
-where server_group_id not in ('26','27','28') and server_name not like '%OFF%'"
-$testQuery = "select server_name from msdb.dbo.sysmanagement_shared_registered_servers 
-where server_name like 'Server_Name_here'"
-$avgQuery ="if exists (select name from sys.sysobjects where name = 'dm_hadr_availability_replica_states')
+    where server_group_id not in ('26','27','28') and server_name not like '%OFF%'"
+$testQuery = "select server_name from msdb.dbo.sysmanagement_shared_registered_servers "+
+    "where server_name like 'Server_Name_here'"
+$avgQuery = "if exists (select name from sys.sysobjects where name = 'dm_hadr_availability_replica_states')
 select rcs.replica_server_name
        , sag.name as avg_name
        , db_name(drs.database_id) as 'DB_Name'
@@ -115,7 +125,7 @@ join sys.availability_groups sag on sag.group_id = rs.group_id
 
 where
 drs.synchronization_health_desc not like 'HEALTHY'"
-$jobQuery =";WITH CTE_MostRecentJobRun AS  
+$jobQuery = ";WITH CTE_MostRecentJobRun AS  
  (  
  -- For each job get the most recent run (this will be the one where Rnk=1)  
  SELECT job_id,run_status,run_date,run_time  
@@ -175,21 +185,21 @@ order by DatabaseName;
 
 
 #Formatting variables for CSV output (which are then read back in for emailing)
-$avgFormat = 'replica_server_name','avg_name','db_name','db_sync_health'
-$failedJobFormat = 'Server_name','Job_name','Time_Run'
-$dbaJobFormat = 'Server_Name','Name','Date_Modified'
-$diskFormat = 'Server_Name','UsedPercentage','DriveName'
-$fullRetentionFormat = 'Server_Name','DatabaseName','FullBackup_DaysOld','DiffBackup_DaysOld','LogBackup_MinutesOld'
+$avgFormat = 'replica_server_name', 'avg_name', 'db_name', 'db_sync_health'
+$failedJobFormat = 'Server_name', 'Job_name', 'Time_Run'
+$dbaJobFormat = 'Server_Name', 'Name', 'Date_Modified'
+$diskFormat = 'Server_Name', 'UsedPercentage', 'DriveName'
+$fullRetentionFormat = 'Server_Name', 'DatabaseName', 'FullBackup_DaysOld', 'DiffBackup_DaysOld', 'LogBackup_MinutesOld'
 
 cd c:
 
 #Path Variables
-$reportPath ="\\netapp.domain.mil\backupshare$\Automation\"
-$avgOutputFile = $reportPath+"agDailyReport.txt"
-$mountSpaceOutputFile = $reportPath+"diskReporting.txt"
-$jobOutputFile = $reportPath+"jobFails.txt"
-$dbaJobOutputFile = $reportPath+"dbaJobFails.txt" 
-$fullRetentionOutputFile = $reportPath+"fullRetention.txt"
+$reportPath = "\\netapp.domain.mil\backupshare$\Automation\"
+$avgOutputFile = $reportPath + "agDailyReport.txt"
+$mountSpaceOutputFile = $reportPath + "diskReporting.txt"
+$jobOutputFile = $reportPath + "jobFails.txt"
+$dbaJobOutputFile = $reportPath + "dbaJobFails.txt" 
+$fullRetentionOutputFile = $reportPath + "fullRetention.txt"
 $bodyUpper = Get-Content $reportPath"bodyUpper.txt" -raw
 $bodyLower = Get-Content $reportPath"bodyLower.txt" -raw
 
