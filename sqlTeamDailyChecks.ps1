@@ -1,5 +1,3 @@
-#Pull in the needed
-#[System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.Smo") |Out-Null
 try {
     import-module sqlps -DisableNameChecking    
 }
@@ -13,7 +11,9 @@ function Invoke-DailyCheck {
     param(
         [string] $Query, $outputFile, $scope, $format, $cms, $checkname
     )
+    if (test-path $outputFile){
     Clear-Content $outputFile
+    }
     $jobMessage = @()
     $jobSqlServers = invoke-sqlcmd -query $scope -ServerInstance $cms -ConnectionTimeout 10 | Select-Object server_name
 
@@ -28,52 +28,48 @@ function Invoke-DailyCheck {
         finally {$jobMessage | Export-Csv $outputFile -NoTypeInformation -ErrorAction SilentlyContinue}
     }
 }
+#Including this remote-wmi as a fallback, functionality is replaced using TSQL from Patrick Keislers excellent morning check script
+function Get-InstanceDisks{
+[cmdletbinding()]
+param(
+[string]$scope,$cms,$outputFile, $format,
+[decimal]$cutoff
+)
+Clear-Content $outputFile
+$messageArray = @()
+$mountedServers = invoke-sqlcmd -query $scope -ServerInstance $cms -ConnectionTimeout 10 | select server_name
+Foreach ($mountedServer in $mountedServers.server_name) {
+write-host $mountedServer
+if ((Test-Connection -Quiet $mountedServer.Split('\')[0]) -eq -$true){
+Try{
+$Volumes = Get-WmiObject -ComputerName $mountedServer.Split('\')[0] win32_volume | Where-Object {$_.Capacity -gt 0}
+}
+catch {
+"Error grabbing Volumes from $mountedServer"
+#Continue
+}
+$messageObj = "" | select $format
+Foreach ($Volume in $Volumes){
 
-function Get-InstanceDisks {
-    [cmdletbinding()]
-    param(
-        [string]$scope, $cms, $outputFile, $format,
-        [decimal]$cutoff
-    )
-    Clear-Content $outputFile
-    $messageArray = @()
-    $mountedServers = invoke-sqlcmd -query $scope -ServerInstance $cms -ConnectionTimeout 10 | Select-Object server_name
-    Foreach ($mountedServer in $mountedServers.server_name) {
+If ($Volume.Label -ne "System Reserved" -or $Volume.Label -ne "System"){
+$FreeSpace = ([math]::round(($Volume.FreeSpace / 1073741824),2))
+$TotalSpace = ([math]::round(($Volume.Capacity / 1073741824),2))
+$UsedPercentage = 100-(($FreeSpace/$TotalSpace)*100)
+$driveName = $Volume.Label -replace ' ',''
 
-        if ((Test-Connection -Quiet $mountedServer.Split('\')[0]) -eq - $true) {
-            Try {
-                $Volumes = Get-WmiObject -ComputerName $mountedServer.Split('\')[0] win32_volume | Where-Object {$_.Capacity -gt 0}
-            }
-            catch {
-                "Error grabbing Volumes from $mountedServer"
-                Continue
-            }
-            $messageObj = "" | Select-Object $format
-            Foreach ($Volume in $Volumes) {
-
-                If ($Volume.Label -ne "System Reserved" -or $Volume.Label -ne "System") {
-                    $FreeSpace = ([math]::round(($Volume.FreeSpace / 1073741824), 2))
-                    $TotalSpace = ([math]::round(($Volume.Capacity / 1073741824), 2))
-                    $UsedPercentage = 100 - (($FreeSpace / $TotalSpace) * 100)
-                    $driveName = $Volume.Label -replace ' ', ''
-
-                    $messageObj.Server_name = $mountedServer
-                    $messageObj.UsedPercentage = $UsedPercentage
-                    $messageObj.driveName = $driveName
+$messageObj.Server_name = $mountedServer
+$messageObj.UsedPercentage = $UsedPercentage
+$messageObj.driveName = $driveName
 
 
-                    If ($messageObj.UsedPercentage -gt $cutoff) {
-                        $messageArray += $messageObj | Select-Object $format
-                    }
-                }
-            }
+If ($messageObj.UsedPercentage -gt $cutoff){
+$messageArray += $messageObj | Select-Object $format
+}
+}}
 
-            $messageArray | Sort-Object -Property UsedPercentage -Descending| Export-Csv $outputFile -NoTypeInformation -ErrorAction SilentlyContinue 
-        }
-    }
+$messageArray | Sort-Object -Property UsedPercentage -Descending| Export-Csv $outputFile -NoTypeInformation -ErrorAction SilentlyContinue }}
 
 }
-
 Function Send-DailyChecks {
     [cmdletbinding()]
     Param (
@@ -94,8 +90,29 @@ Function Send-DailyChecks {
     "<BR>" + "<b>Backups out of Retention:</b><BR>" + (import-csv -path $fullRetentionOutputFile | ConvertTo-Html -Fragment) +
     $bodyLower
 
+    $Body | out-file $reportPath"Daily Report.html"
+
     Send-MailMessage -From $fromAddress -to $SendTo -Subject $Subject -Bodyashtml $Body -SmtpServer $SMTPRelay -Credential $anonCredentials
 }
+
+cd c:
+
+#Path and pertinent Variables
+$reportPath ="\\netap\share\SQLcmsDailyChecks\"
+$avgOutputFile = $reportPath+"reports\agDailyReport.txt"
+$mountSpaceOutputFile = $reportPath+"reports\diskReporting.txt"
+$jobOutputFile = $reportPath+"reports\jobFails.txt"
+$dbaJobOutputFile = $reportPath+"reports\dbaJobFails.txt" 
+$fullRetentionOutputFile = $reportPath+"reports\fullRetention.txt"
+$bodyUpper = Get-Content $reportPath"html\bodyUpper.txt" -raw
+$bodyLower = Get-Content $reportPath"html\bodyLower.txt" -raw
+
+$smtp = "smtp-relay.site.com"
+$sendToAll = "<DataCenter_Database@site.com>"
+$sendToTest = "Sean Coughlin <sean.coughlin@site.com>"
+$sendFrom = "SQL Daily Checks <dailycheck@site.com>"
+$cms = 'CMSSQLSERVER'
+$diskCutOff = 80
 
 
 #Query Variables
@@ -103,7 +120,7 @@ $allQuery = "select server_name from msdb.dbo.sysmanagement_shared_registered_se
             where server_group_id not in ('26','27','28') and server_name not like '%OFF%'"
 $testQuery = "select server_name from msdb.dbo.sysmanagement_shared_registered_servers 
              where server_name like 'Server_Name_here'"
-$avgQuery = "if exists (select name from sys.sysobjects where name = 'dm_hadr_availability_replica_states')
+$agQuery = "if exists (select name from sys.sysobjects where name = 'dm_hadr_availability_replica_states')
             select rcs.replica_server_name
                    , sag.name as avg_name
                    , db_name(drs.database_id) as 'DB_Name'
@@ -181,38 +198,39 @@ $retentionQuery = "IF OBJECT_ID('tempdb..#retention_checks') IS NOT NULL DROP TA
                 where ( (FULLBackup_DaysOld > 7) OR (DIFFBackup_DaysOld > 2 and databasename not like 'master') OR (LogBackup_MinutesOld > 100 and RecoveryModel like 'FULL') )
                 order by DatabaseName;
                 "
+$diskTSQL = "SELECT DISTINCT 
 
+        @@SERVERNAME as [server_name]
+		,100-CONVERT(DECIMAL(18,2), vs.available_bytes * 1. / vs.total_bytes * 100.) AS used_space_pct
+		,vs.volume_mount_point
+		,vs.logical_volume_name
+		,CONVERT(DECIMAL(18,2), vs.total_bytes/1073741824.0) AS total_gb
+		,CONVERT(DECIMAL(18,2), vs.available_bytes/1073741824.0) AS available_gb
+		       
+
+    FROM sys.master_files AS f WITH (NOLOCK)
+	CROSS APPLY sys.dm_os_volume_stats(f.database_id, f.[file_id]) AS vs 
+	where 100-(CONVERT(DECIMAL(18,2), vs.available_bytes * 1. / vs.total_bytes * 100.)) > $diskCutOff
+	ORDER BY vs.volume_mount_point OPTION (RECOMPILE);"
 
 #Formatting variables for CSV output (which are then read back in for emailing)
-$avgFormat = 'replica_server_name', 'avg_name', 'db_name', 'db_sync_health'
+$agFormat = 'replica_server_name', 'avg_name', 'db_name', 'db_sync_health'
 $failedJobFormat = 'Server_name', 'Job_name', 'Time_Run'
 $dbaJobFormat = 'Server_Name', 'Name', 'Date_Modified'
 $diskFormat = 'Server_Name', 'UsedPercentage', 'DriveName'
 $fullRetentionFormat = 'Server_Name', 'DatabaseName', 'FullBackup_DaysOld', 'DiffBackup_DaysOld', 'LogBackup_MinutesOld'
-
-cd c:
-
-#Path Variables
-$reportPath = "\\netapp.domain.mil\backupshare$\Automation\reports\"
-$avgOutputFile = $reportPath + "agDailyReport.txt"
-$mountSpaceOutputFile = $reportPath + "diskReporting.txt"
-$jobOutputFile = $reportPath + "jobFails.txt"
-$dbaJobOutputFile = $reportPath + "dbaJobFails.txt" 
-$fullRetentionOutputFile = $reportPath + "fullRetention.txt"
-$bodyUpper = Get-Content $reportPath"html\bodyUpper.txt" -raw
-$bodyLower = Get-Content $reportPath"html\bodyLower.txt" -raw
-
-$smtp = "smtp-relay.domain.mil"
-$sendToAll = "<Database_Distro@domain.mil>"
-$sendFrom = "SQL Daily Checks <dailychecks@domain.mil>"
-$cms = 'CMSServerName'
+$diskTSQLFormat = 'Server_Name','used_space_pct','volume_mount_point','total_gb','available_gb'
 
 
-Invoke-DailyCheck -scope $allQuery -cms $cms -Query $avgQuery -outputFile $avgOutputFile -checkname 'AG Check' -format $avgFormat 
+#
+Invoke-DailyCheck -scope $allQuery -cms $cms -Query $agQuery -outputFile $avgOutputFile -checkname 'AG Check' -format $agFormat 
 Invoke-DailyCheck -scope $allQuery -cms $cms -Query $jobQuery -outputFile $jobOutputFile -checkname 'Failed Job Check' -format $failedJobFormat
 Invoke-DailyCheck -scope $allQuery -cms $cms -Query $dbaJobQuery -outputFile $dbaJobOutputFile -checkname 'Disabled Job Check' -format $dbaJobFormat
 Invoke-DailyCheck -scope $allQuery -cms $cms -Query $retentionQuery -outputFile $fullRetentionOutputFile -checkname 'Retention Check' -format $fullRetentionFormat
-Get-InstanceDisks -scope $allQuery -cms $cms -outputFile $mountSpaceOutputFile -cutoff 80 -format $diskFormat 
+Invoke-DailyCheck -scope $allQuery -cms $cms -Query $diskTSQL -outputFile $mountSpaceOutputFile -checkname 'Disk Check' -format $diskTSQLFormat
+#Example of Legacy (remote-wmi) disk check call:
+#Get-InstanceDisks -scope $allQuery -cms $cms -outputFile $mountSpaceOutputFile -cutoff 80 -format $diskFormat 
+#>
 
 Send-DailyChecks -sendTo $sendToAll -fromAddress $sendFrom -SMTPRelay $smtp
 
