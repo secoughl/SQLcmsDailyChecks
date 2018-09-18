@@ -39,19 +39,32 @@
 
 ## Script use:
 
-**Invoke-DailyCheck** **-scope** *$allQuery* **-cms** *$cms* **-Query** *$avgQuery* **-outputFile** *$avgOutputFile* **-checkname** *'AG Check'* **-format** *$avgFormat* 
+**Invoke-DailyCheck** `-scope` *$allQuery* `-cms` *$cms* `-Query` *$avgQuery* `-outputFile` *$avgOutputFile* `-checkname` *'AG Check'* `-format` *$avgFormat* 
 
 | Parameter | Explanation |
 | ---- | ---- |
-| scope | Query to submit to CMS to build your list of servers |
-| cms | your CMS server |
-| Query | what check you want to run |
-| outputFile | where to write the results of the check |
-| format | used in the export-csv and import-csv to keep everything clean |
+| `-scope` | Query to submit to CMS to build your list of servers |
+| `-cms` | Your CMS server |
+| `-Query` | The TSQL Query you would like to run |
+| `-outputFile` | Where to write the results of the check |
+| `-format` | used in the export-csv and import-csv to keep everything clean |
 
-Should you want to use this function to roll in your own checks:
+## Utilizing the function to roll your own checks:
+**You will Need**<br>
+- A string that contains your query
+> ```$newCheckQuery = "select @@servername as server_name, name as db_name, state_desc as state from sys.databases where state_desc not like 'ONLINE'"```
 
-All you need is a string that contains the SQL query you want to run, a list of the columns that you want to retain, and a file to write to. Once you have updated the script with those values, edit the function 'Send-DailyChecks' to include the additional import line.
+- A file to store the data in
+> ```$newCheckOutputFile = $reportPath+"reports\newCheckOutput.txt```
+
+- The list of columns you would like retained
+> ```$newFormat = 'server_name','db_name','state'```
+
+- Modify the *$body* variable in Send-DailyChecks to include a line for your new check
+> ```"<BR>" + "<b>Databases that are offline:</b><BR>" + (import-csv -path $newCheckOutputFile | ConvertTo-Html -Fragment) +```
+
+- Finally, call the daily check function
+> ```**Invoke-DailyCheck** -scope *$allQuery* -cms *$cms* -Query *$newCheckQuery* -outputFile *$newCheckOutputFile* -checkname *DB State Check'* -format *$newFormat*```
 
 Scheduling:
 We currently schedule using a SQL Agent Job which runs daily. In order to ensure maximum compatibility in our secured environment, we copy the script down from the network, call PowerShell using our local copy, then at finish delete the local copy. A copy of this job is included in the repo
