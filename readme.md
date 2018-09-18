@@ -55,7 +55,7 @@
 > ```$newCheckQuery = "select @@servername as server_name, name as db_name, state_desc as state from sys.databases where state_desc not like 'ONLINE'"```
 
 - A file to store the data in
-> ```$newCheckOutputFile = $reportPath+"reports\newCheckOutput.txt```
+> ```$newCheckOutputFile = $reportPath+"reports\newCheckOutput.txt"```
 
 - The list of columns you would like retained
 > ```$newFormat = 'server_name','db_name','state'```
