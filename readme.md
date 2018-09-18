@@ -4,16 +4,31 @@
 
 
 Setup:
-1. Deploy all files to a network or local location that the Account performing the checks can access.
-2. Update SQLDailyChecks.ps1 (Lines 121-221) in the following manner to fit your environment:
+**1. Deploy all files to a network or local location that the Account performing the checks can access.
+2. Update SQLDailyChecks.ps1 (Lines 121-221) in the following manner to fit your environment:**
+| Variable | Description |
+| --- | --- |
+| $reportPath | Root directory for reports and HTML files, please ensure it ends with \ |
+| $agOutputFile | File to write results from Availability Group Check |
+| $mountSpaceOutputFile | File to write results from Disk Check |
+| $jobOutputFile | File to write results from Last Failed Jobs Check |
+| $dbaJobOutputFile | File to write results from Disabled DBA Jobs Check |
+| $fullRetentionOutputFile | File to write results from Backup Retention Check |
+| $bodyUpper | First half of HTML template |
+| $bodyLower | Second half of HTML Template |
+
+
+- Line 122 through 129 - Update these filenames if you change them from the example, these need to be accurate as they control both where the checks are written and what imports occur to generate the HTML email
+- Line 131 through 136 - Update your smtprelay, address to send to, address to send from, and finally CMS server name
+
+
 - $allQuery - Update this for whatever you want to filter off of the results from CMS. Currently shows example Server Group exemptions and wildcard name exemptions ('%OFF%')
 - $testQuery - Update this to something simple (like grabbing a single specific instance) and pass it as your scope for rapid testing
 - Failed job query - 'name like 'DBA%' - This line exists because, at this customer, all of the jobs we care about across the enterprise start with the name DBA. Please update or remove this line to conform to your environment
 - Disabled job query - 'name like 'DBA%' - This line exists because, at this customer, all of the jobs we care about across the enterprise start with the name DBA. Please update or remove this line to conform to your environment
 - Please set your retention numbers here based on your backup cadence. We perform a Full every week, a diff every day, and TLOGs every 30 minutes, so we alert on Fulls > 7 days, Diffs > 2 Days, and TLOGs > 100 minutes
 - $reportPath - update this to the base directory that holds all of your output files, as well as the upper and lower blocks of HTML for your email template. We use a shared network location for ease of updating and consolidation.  Please ensure there is a trailing \
-- Line 122 through 129 - Update these filenames if you change them from the example, these need to be accurate as they control both where the checks are written and what imports occur to generate the HTML email
-- Line 131 through 136 - Update your smtprelay, address to send to, address to send from, and finally CMS server name
+
 
 
 
