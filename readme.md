@@ -25,7 +25,7 @@
 | $cms | The server\instance name of your Central Management Server |
 | $diskCutOff | When to start showing disk resultes in the e-mail |
 
-**4. _Optional_ Update SQLDailyChecks.ps1 (Lines 139-222) to modify the baked-in check queries:**<br>
+**4. _(Optional)_ Update SQLDailyChecks.ps1 (Lines 139-222) to modify the baked-in check queries:**<br>
 
 | Query Variable | Suggestion |
 | ---- | ---- |
@@ -39,24 +39,19 @@
 
 ## Script use:
 
-Invoke-DailyCheck -scope $allQuery -cms $cms -Query $avgQuery -outputFile $avgOutputFile -checkname 'AG Check' -format $avgFormat 
--scope: query to submit to CMS to build your list of servers
--cms: your CMS server
--Query: what check you want to run
--outputFile: where to write the results of the check
--checkname: Not entirely required, just useful for human-readable errors 
--format: used in the export-csv and import-csv to keep everything clean
+**Invoke-DailyCheck** **-scope** *$allQuery* **-cms** *$cms* **-Query** *$avgQuery* **-outputFile** *$avgOutputFile* **-checkname** *'AG Check'* **-format** *$avgFormat* 
+
+| Parameter | Explanation |
+| ---- | ---- |
+| scope | Query to submit to CMS to build your list of servers |
+| cms | your CMS server |
+| Query | what check you want to run |
+| outputFile | where to write the results of the check |
+| format | used in the export-csv and import-csv to keep everything clean |
 
 Should you want to use this function to roll in your own checks:
 
 All you need is a string that contains the SQL query you want to run, a list of the columns that you want to retain, and a file to write to. Once you have updated the script with those values, edit the function 'Send-DailyChecks' to include the additional import line.
-
-Get-InstanceDisks -scope $allQuery -cms $cms -outputFile $mountSpaceOutputFile -cutoff 80 -format $diskFormat 
--scope: query to submit to CMS to build your list of servers
--cms: your CMS server
--outputFile: where to write the results of the check
--cutoff: what percent used to start including in the email
--format: used in the export-csv and import-csv to keep everything clean
 
 Scheduling:
 We currently schedule using a SQL Agent Job which runs daily. In order to ensure maximum compatibility in our secured environment, we copy the script down from the network, call PowerShell using our local copy, then at finish delete the local copy. A copy of this job is included in the repo
