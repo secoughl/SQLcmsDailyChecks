@@ -135,6 +135,14 @@ $sendFrom = "SQL Daily Checks <dailycheck@domain.com>"
 $cms = 'CMSSQLSERVER'
 $diskCutOff = 80
 
+#Formatting variables for CSV output (which are then read back in for emailing)
+$agFormat = 'replica_server_name', 'avg_name', 'db_name', 'db_sync_health'
+$failedJobFormat = 'Server_name', 'Job_name', 'Time_Run'
+$dbaJobFormat = 'Server_Name', 'Name', 'Date_Modified'
+$diskFormat = 'Server_Name', 'UsedPercentage', 'DriveName'
+$fullRetentionFormat = 'Server_Name', 'DatabaseName', 'FullBackup_DaysOld', 'DiffBackup_DaysOld', 'LogBackup_MinutesOld'
+$diskTSQLFormat = 'Server_Name','used_space_pct','volume_mount_point','total_gb','available_gb'
+
 #Query Variables
 $allQuery = "select server_name from msdb.dbo.sysmanagement_shared_registered_servers 
             where server_group_id not in ('26','27','28') and server_name not like '%OFF%'"
@@ -233,10 +241,8 @@ $diskTSQL = "SELECT DISTINCT
 	CROSS APPLY sys.dm_os_volume_stats(f.database_id, f.[file_id]) AS vs 
 	where 100-(CONVERT(DECIMAL(18,2), vs.available_bytes * 1. / vs.total_bytes * 100.)) > $diskCutOff
 	ORDER BY vs.volume_mount_point OPTION (RECOMPILE);"
-
-
 #
-Invoke-DailyCheck -scope $allQuery -cms $cms -Query $agQuery -outputFile $agOutputFile -checkname 'AG Check' -format $avgFormat 
+Invoke-DailyCheck -scope $allQuery -cms $cms -Query $agQuery -outputFile $agOutputFile -checkname 'AG Check' -format $agFormat 
 Invoke-DailyCheck -scope $allQuery -cms $cms -Query $failedJobQuery -outputFile $jobOutputFile -checkname 'Failed Job Check' -format $failedJobFormat
 Invoke-DailyCheck -scope $allQuery -cms $cms -Query $dbaDisabledJobQuery -outputFile $dbaJobOutputFile -checkname 'Disabled Job Check' -format $dbaJobFormat
 Invoke-DailyCheck -scope $allQuery -cms $cms -Query $retentionQuery -outputFile $fullRetentionOutputFile -checkname 'Retention Check' -format $fullRetentionFormat
