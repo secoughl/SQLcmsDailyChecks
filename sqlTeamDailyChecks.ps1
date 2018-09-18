@@ -23,7 +23,10 @@ function Invoke-DailyCheck {
             $jobMessageTemp = invoke-sqlcmd -query $Query -ServerInstance $jobSqlServer -ConnectionTimeout 10 -erroraction silentlycontinue | Select-Object $format
             $jobMessage += $jobMessageTemp
         }
-        catch {"couldn't connect to $jobSqlServer during $checkname"}
+        catch {$friendlyError = "couldn't connect to $jobSqlServer during $checkname"
+        $friendlyError
+        Log-Error -reportDirectory $reportPath -cleanError $friendlyError -fullError $_.Exception
+        }
 
         finally {$jobMessage | Export-Csv $outputFile -NoTypeInformation -ErrorAction SilentlyContinue}
     }
@@ -83,7 +86,7 @@ Function Send-DailyChecks {
     $Subject = "SQL Daily Checks Completed, see attached"
 
     $Body = $bodyUpper +
-    "<BR>" + "<b>Failed AG DBs:</b><BR>" + (import-csv -path $avgOutputFile| convertto-html -fragment) +
+    "<BR>" + "<b>Failed AG DBs:</b><BR>" + (import-csv -path $agOutputFile| convertto-html -fragment) +
     "<BR>" + "<b>Jobs that failed their last run:</b><BR>" + (import-csv -path $jobOutputFile | ConvertTo-Html -Fragment) +
     "<BR>" + "<b>Disabled DBA Jobs:</b><BR>" + (import-csv -path $dbaJobOutputFile | ConvertTo-Html -Fragment) +
     "<BR>" + "<b>Disks over 80%:</b><BR>" + (import-csv -path $mountSpaceOutputFile | ConvertTo-Html -Fragment) +
@@ -91,15 +94,33 @@ Function Send-DailyChecks {
     $bodyLower
 
     $Body | out-file $reportPath"Daily Report.html"
-
-    Send-MailMessage -From $fromAddress -to $SendTo -Subject $Subject -Bodyashtml $Body -SmtpServer $SMTPRelay -Credential $anonCredentials
+    try{Send-MailMessage -From $fromAddress -to $SendTo -Subject $Subject -Bodyashtml $Body -SmtpServer $SMTPRelay -Credential $anonCredentials -ErrorAction Stop
+        }
+    catch{$friendlyError = "Message Send failed to $SMTPRelay"
+    $friendlyError
+    Log-Error -reportDirectory $reportPath -cleanError $friendlyError -fullError $_.Exception
+    }
+    
 }
+Function Log-Error {
+    [cmdletbinding()]
+    Param (
+        [string] $reportDirectory, $cleanError, $fullError
+    )
+    $timeStamp = get-date -format g
+    $dirtyOutput = "$cleanError","$timeStamp", "$fullError"
+    $cleanOutput = $dirtyOutput | Out-String
+
+    $cleanOutPut | Add-Content $reportDirectory"errorlog.txt"
+    #debug purposes only
+    #Write-Host $cleanOutput
+    }
 
 cd c:
 
 #Path and pertinent Variables
-$reportPath ="\\netap\share\SQLcmsDailyChecks\"
-$avgOutputFile = $reportPath+"reports\agDailyReport.txt"
+$reportPath ="\\networkshare\sharepath\dailyReturns\"
+$agOutputFile = $reportPath+"reports\agDailyReport.txt"
 $mountSpaceOutputFile = $reportPath+"reports\diskReporting.txt"
 $jobOutputFile = $reportPath+"reports\jobFails.txt"
 $dbaJobOutputFile = $reportPath+"reports\dbaJobFails.txt" 
@@ -107,20 +128,19 @@ $fullRetentionOutputFile = $reportPath+"reports\fullRetention.txt"
 $bodyUpper = Get-Content $reportPath"html\bodyUpper.txt" -raw
 $bodyLower = Get-Content $reportPath"html\bodyLower.txt" -raw
 
-$smtp = "smtp-relay.site.com"
-$sendToAll = "<DataCenter_Database@site.com>"
-$sendToTest = "Sean Coughlin <sean.coughlin@site.com>"
-$sendFrom = "SQL Daily Checks <dailycheck@site.com>"
+$smtp = "smtp-relay.domain.com"
+$sendToAll = "<DataCenter_Database@domain.com>"
+$sendToTest = "Sean Coughlin <sean.coughlin@domain.com>"
+$sendFrom = "SQL Daily Checks <dailycheck@domain.com>"
 $cms = 'CMSSQLSERVER'
 $diskCutOff = 80
-
 
 #Query Variables
 $allQuery = "select server_name from msdb.dbo.sysmanagement_shared_registered_servers 
             where server_group_id not in ('26','27','28') and server_name not like '%OFF%'"
 $testQuery = "select server_name from msdb.dbo.sysmanagement_shared_registered_servers 
              where server_name like 'Server_Name_here'"
-$agQuery = "if exists (select name from sys.sysobjects where name = 'dm_hadr_availability_replica_states')
+$avgQuery = "if exists (select name from sys.sysobjects where name = 'dm_hadr_availability_replica_states')
             select rcs.replica_server_name
                    , sag.name as avg_name
                    , db_name(drs.database_id) as 'DB_Name'
@@ -213,25 +233,13 @@ $diskTSQL = "SELECT DISTINCT
 	where 100-(CONVERT(DECIMAL(18,2), vs.available_bytes * 1. / vs.total_bytes * 100.)) > $diskCutOff
 	ORDER BY vs.volume_mount_point OPTION (RECOMPILE);"
 
-#Formatting variables for CSV output (which are then read back in for emailing)
-$agFormat = 'replica_server_name', 'avg_name', 'db_name', 'db_sync_health'
-$failedJobFormat = 'Server_name', 'Job_name', 'Time_Run'
-$dbaJobFormat = 'Server_Name', 'Name', 'Date_Modified'
-$diskFormat = 'Server_Name', 'UsedPercentage', 'DriveName'
-$fullRetentionFormat = 'Server_Name', 'DatabaseName', 'FullBackup_DaysOld', 'DiffBackup_DaysOld', 'LogBackup_MinutesOld'
-$diskTSQLFormat = 'Server_Name','used_space_pct','volume_mount_point','total_gb','available_gb'
-
 
 #
-Invoke-DailyCheck -scope $allQuery -cms $cms -Query $agQuery -outputFile $avgOutputFile -checkname 'AG Check' -format $agFormat 
+Invoke-DailyCheck -scope $allQuery -cms $cms -Query $avgQuery -outputFile $agOutputFile -checkname 'AG Check' -format $avgFormat 
 Invoke-DailyCheck -scope $allQuery -cms $cms -Query $jobQuery -outputFile $jobOutputFile -checkname 'Failed Job Check' -format $failedJobFormat
 Invoke-DailyCheck -scope $allQuery -cms $cms -Query $dbaJobQuery -outputFile $dbaJobOutputFile -checkname 'Disabled Job Check' -format $dbaJobFormat
 Invoke-DailyCheck -scope $allQuery -cms $cms -Query $retentionQuery -outputFile $fullRetentionOutputFile -checkname 'Retention Check' -format $fullRetentionFormat
 Invoke-DailyCheck -scope $allQuery -cms $cms -Query $diskTSQL -outputFile $mountSpaceOutputFile -checkname 'Disk Check' -format $diskTSQLFormat
-#Example of Legacy (remote-wmi) disk check call:
-#Get-InstanceDisks -scope $allQuery -cms $cms -outputFile $mountSpaceOutputFile -cutoff 80 -format $diskFormat 
 #>
 
-Send-DailyChecks -sendTo $sendToAll -fromAddress $sendFrom -SMTPRelay $smtp
-
-
+Send-DailyChecks -sendTo $sendToTest -fromAddress $sendFrom -SMTPRelay $smtp

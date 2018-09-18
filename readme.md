@@ -1,16 +1,20 @@
+*update* 9/18/2018 disks percentage is now handled via TSQL, it is no different than any other use of Invoke-DailyCheck. The legacy (remoteWMI) version will be kept in the code for legacy purposes<br>
+*update* 9/18/2018 errors now result in a call to Get-Error which timestamps them and dumps them to a text file in the root directory you specify<br>
+*update* 9/18/2018 An HTML file is also genereated at the root directory you specify in cases when an SMTP Relay isn't available<br>
+
+
 Setup:
 1. Deploy all files to a network or local location that the Account performing the checks can access.
-2. Update SQLDailyChecks.ps1 in the following manner to fit your environment:
-- Line 93 - $allQuery - Update this for whatever you want to filter off of the results from CMS. Currently shows example Server Group exemptions and wildcard name exemptions ('%OFF%')
-- Line 95 - $testQuery - Update this to something simple (like grabbing a single specific instance) and pass it as your scope for rapid testing
-- Line 141 - Failed job query - 'name like 'DBA%' - This line exists because, at this customer, all of the jobs we care about across the enterprise start with the name DBA. Please update or remove this line to conform to your environment
-- Line 145 - Disabled job query - 'name like 'DBA%' - This line exists because, at this customer, all of the jobs we care about across the enterprise start with the name DBA. Please update or remove this line to conform to your environment
-- Line 173 - Please set your retention numbers here based on your backup cadence. We perform a Full every week, a diff every day, and TLOGs every 30 minutes, so we alert on Fulls > 7 days, Diffs > 2 Days, and TLOGs > 100 minutes
-- Line 188 - $reportPath - update this to the base directory that holds all of your output files, as well as the upper and lower blocks of HTML for your email template. We use a shared network location for ease of updating and consolidation.  Please ensure there is a trailing \
-- Line 188 through 195 - Update these filenames if you change them from the example, these need to be accurate as they control both where the checks are written and what imports occur to generate the HTML email
-- Line *198 through 201* - Update your smtprelay, address to send to, address to send from, and finally CMS server name
+2. Update SQLDailyChecks.ps1 (Lines 121-221) in the following manner to fit your environment:
+- $allQuery - Update this for whatever you want to filter off of the results from CMS. Currently shows example Server Group exemptions and wildcard name exemptions ('%OFF%')
+- $testQuery - Update this to something simple (like grabbing a single specific instance) and pass it as your scope for rapid testing
+- Failed job query - 'name like 'DBA%' - This line exists because, at this customer, all of the jobs we care about across the enterprise start with the name DBA. Please update or remove this line to conform to your environment
+- Disabled job query - 'name like 'DBA%' - This line exists because, at this customer, all of the jobs we care about across the enterprise start with the name DBA. Please update or remove this line to conform to your environment
+- Please set your retention numbers here based on your backup cadence. We perform a Full every week, a diff every day, and TLOGs every 30 minutes, so we alert on Fulls > 7 days, Diffs > 2 Days, and TLOGs > 100 minutes
+- $reportPath - update this to the base directory that holds all of your output files, as well as the upper and lower blocks of HTML for your email template. We use a shared network location for ease of updating and consolidation.  Please ensure there is a trailing \
+- Line 122 through 129 - Update these filenames if you change them from the example, these need to be accurate as they control both where the checks are written and what imports occur to generate the HTML email
+- Line 131 through 136 - Update your smtprelay, address to send to, address to send from, and finally CMS server name
 
-In order for the disk percentage check to run, whatever account is used will need rights to remote-wmi on the servers that host your instances.
 
 
 Script use:
