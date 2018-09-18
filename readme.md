@@ -23,18 +23,19 @@
 | $sendToTest | A single DBA's email should you need for testing purposes |
 | $sendFrom | Email address the reports should come from |
 | $cms | The server\instance name of your Central Management Server |
-| diskCutOff | When to start showing disk resultes in the e-mail |
+| $diskCutOff | When to start showing disk resultes in the e-mail |
 
+**4. _Optional_ Update SQLDailyChecks.ps1 (Lines 139-222) to modify the baked-in check queries:**<br>
 
-- $allQuery - Update this for whatever you want to filter off of the results from CMS. Currently shows example Server Group exemptions and wildcard name exemptions ('%OFF%')
-- $testQuery - Update this to something simple (like grabbing a single specific instance) and pass it as your scope for rapid testing
-- Failed job query - 'name like 'DBA%' - This line exists because, at this customer, all of the jobs we care about across the enterprise start with the name DBA. Please update or remove this line to conform to your environment
-- Disabled job query - 'name like 'DBA%' - This line exists because, at this customer, all of the jobs we care about across the enterprise start with the name DBA. Please update or remove this line to conform to your environment
-- Please set your retention numbers here based on your backup cadence. We perform a Full every week, a diff every day, and TLOGs every 30 minutes, so we alert on Fulls > 7 days, Diffs > 2 Days, and TLOGs > 100 minutes
-- $reportPath - update this to the base directory that holds all of your output files, as well as the upper and lower blocks of HTML for your email template. We use a shared network location for ease of updating and consolidation.  Please ensure there is a trailing \
-
-
-
+| Query Variable | Suggestion |
+| ---- | ---- |
+| $allQuery | Use the predicate to filter out Group / Server registrations you don't want included in your checks |
+| $testQuery | Including for quick troubleshooting |
+| $agQuery | Query to find any Availability Group database that doesn't have a status of 'Healthy' |
+| $failedJobQuery | Finds all jobs that failed their last run. Consider a where clause based on name / state for your environment |
+| $dbaDisabledJobQuery | Finds all jobs that are disabled (i.e. someone disabled a backup job and forgot about it.) Consider a where clause depending on your environment |
+| $retentionQuery | Finds databases that have a most recent bacup that is out of your rentention window. Modify the where clause for your retention in days |
+| $diskTSQL | Update $diskCutOff to ensure you get notified when drives being to reach percentage utilization that meets your threshold. |
 
 ## Script use:
 
