@@ -184,11 +184,12 @@ $jobQuery = ";WITH CTE_MostRecentJobRun AS
             JOIN     msdb.dbo.sysjobs SJ  
             ON       MRJR.job_id=sj.job_id  
             WHERE    Rnk=1  
-            AND name like 'DBA%'
+            --AND name like 'DBA%'
             AND      run_status=0 -- i.e. failed  
             ORDER BY name  "
 $dbaJobQuery = "select @@servername as [Server_Name], name as [Name], date_modified as [Date_Modified] 
-                from msdb.dbo.sysjobs where name like '%DBA%' and enabled <> 1"
+                --from msdb.dbo.sysjobs where name like '%DBA%' and enabled <> 1
+                from msdb.dbo.sysjobs where enabled <> 1"
 $retentionQuery = "IF OBJECT_ID('tempdb..#retention_checks') IS NOT NULL DROP TABLE #retention_checks
 
                 select d.name as DatabaseName, d.recovery_model_desc as RecoveryModel,
@@ -243,3 +244,5 @@ Invoke-DailyCheck -scope $allQuery -cms $cms -Query $diskTSQL -outputFile $mount
 #>
 
 Send-DailyChecks -sendTo $sendToTest -fromAddress $sendFrom -SMTPRelay $smtp
+
+
