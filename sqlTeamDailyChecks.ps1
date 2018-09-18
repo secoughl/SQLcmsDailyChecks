@@ -140,7 +140,7 @@ $allQuery = "select server_name from msdb.dbo.sysmanagement_shared_registered_se
             where server_group_id not in ('26','27','28') and server_name not like '%OFF%'"
 $testQuery = "select server_name from msdb.dbo.sysmanagement_shared_registered_servers 
              where server_name like 'Server_Name_here'"
-$avgQuery = "if exists (select name from sys.sysobjects where name = 'dm_hadr_availability_replica_states')
+$agQuery = "if exists (select name from sys.sysobjects where name = 'dm_hadr_availability_replica_states')
             select rcs.replica_server_name
                    , sag.name as avg_name
                    , db_name(drs.database_id) as 'DB_Name'
@@ -162,7 +162,7 @@ $avgQuery = "if exists (select name from sys.sysobjects where name = 'dm_hadr_av
 
             where
             drs.synchronization_health_desc not like 'HEALTHY'"
-$jobQuery = ";WITH CTE_MostRecentJobRun AS  
+$failedJobQuery = ";WITH CTE_MostRecentJobRun AS  
              (  
              -- For each job get the most recent run (this will be the one where Rnk=1)  
              SELECT job_id,run_status,run_date,run_time  
@@ -187,7 +187,7 @@ $jobQuery = ";WITH CTE_MostRecentJobRun AS
             --AND name like 'DBA%'
             AND      run_status=0 -- i.e. failed  
             ORDER BY name  "
-$dbaJobQuery = "select @@servername as [Server_Name], name as [Name], date_modified as [Date_Modified] 
+$dbaDisabledJobQuery = "select @@servername as [Server_Name], name as [Name], date_modified as [Date_Modified] 
                 --from msdb.dbo.sysjobs where name like '%DBA%' and enabled <> 1
                 from msdb.dbo.sysjobs where enabled <> 1"
 $retentionQuery = "IF OBJECT_ID('tempdb..#retention_checks') IS NOT NULL DROP TABLE #retention_checks
@@ -236,9 +236,9 @@ $diskTSQL = "SELECT DISTINCT
 
 
 #
-Invoke-DailyCheck -scope $allQuery -cms $cms -Query $avgQuery -outputFile $agOutputFile -checkname 'AG Check' -format $avgFormat 
-Invoke-DailyCheck -scope $allQuery -cms $cms -Query $jobQuery -outputFile $jobOutputFile -checkname 'Failed Job Check' -format $failedJobFormat
-Invoke-DailyCheck -scope $allQuery -cms $cms -Query $dbaJobQuery -outputFile $dbaJobOutputFile -checkname 'Disabled Job Check' -format $dbaJobFormat
+Invoke-DailyCheck -scope $allQuery -cms $cms -Query $agQuery -outputFile $agOutputFile -checkname 'AG Check' -format $avgFormat 
+Invoke-DailyCheck -scope $allQuery -cms $cms -Query $failedJobQuery -outputFile $jobOutputFile -checkname 'Failed Job Check' -format $failedJobFormat
+Invoke-DailyCheck -scope $allQuery -cms $cms -Query $dbaDisabledJobQuery -outputFile $dbaJobOutputFile -checkname 'Disabled Job Check' -format $dbaJobFormat
 Invoke-DailyCheck -scope $allQuery -cms $cms -Query $retentionQuery -outputFile $fullRetentionOutputFile -checkname 'Retention Check' -format $fullRetentionFormat
 Invoke-DailyCheck -scope $allQuery -cms $cms -Query $diskTSQL -outputFile $mountSpaceOutputFile -checkname 'Disk Check' -format $diskTSQLFormat
 #>
