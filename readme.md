@@ -1,6 +1,6 @@
-*update* 9/18/2018 disks percentage is now handled via TSQL, it is no different than any other use of Invoke-DailyCheck. The legacy (remoteWMI) version will be kept in the code for legacy purposes
-*update* 9/18/2018 errors now result in a call to Get-Error which timestamps them and dumps them to a text file in the root directory you specify
-*update* 9/18/2018 An HTML file is also genereated at the root directory you specify in cases when an SMTP Relay isn't available
+*update* 9/18/2018 disks percentage is now handled via TSQL, it is no different than any other use of Invoke-DailyCheck. The legacy (remoteWMI) version will be kept in the code for legacy purposes<br>
+*update* 9/18/2018 errors now result in a call to Get-Error which timestamps them and dumps them to a text file in the root directory you specify<br>
+*update* 9/18/2018 An HTML file is also genereated at the root directory you specify in cases when an SMTP Relay isn't available<br>
 
 
 Setup:
