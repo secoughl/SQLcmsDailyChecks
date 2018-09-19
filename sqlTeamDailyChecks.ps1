@@ -11,8 +11,8 @@ function Invoke-DailyCheck {
     param(
         [string] $Query, $outputFile, $scope, $format, $cms, $checkname
     )
-    if (test-path $outputFile){
-    Clear-Content $outputFile
+    if (test-path $outputFile) {
+        Clear-Content $outputFile
     }
     $jobMessage = @()
     $jobSqlServers = invoke-sqlcmd -query $scope -ServerInstance $cms -ConnectionTimeout 10 | Select-Object server_name
@@ -23,54 +23,58 @@ function Invoke-DailyCheck {
             $jobMessageTemp = invoke-sqlcmd -query $Query -ServerInstance $jobSqlServer -ConnectionTimeout 10 -erroraction silentlycontinue | Select-Object $format
             $jobMessage += $jobMessageTemp
         }
-        catch {$friendlyError = "couldn't connect to $jobSqlServer during $checkname"
-        $friendlyError
-        Log-Error -reportDirectory $reportPath -cleanError $friendlyError -fullError $_.Exception
+        catch {
+            $friendlyError = "couldn't connect to $jobSqlServer during $checkname"
+            $friendlyError
+            Add-ErrorItem -reportDirectory $reportPath -cleanError $friendlyError -fullError $_.Exception
         }
 
         finally {$jobMessage | Export-Csv $outputFile -NoTypeInformation -ErrorAction SilentlyContinue}
     }
 }
 #Including this remote-wmi as a fallback, functionality is replaced using TSQL from Patrick Keislers excellent morning check script
-function Get-InstanceDisks{
-[cmdletbinding()]
-param(
-[string]$scope,$cms,$outputFile, $format,
-[decimal]$cutoff
-)
-Clear-Content $outputFile
-$messageArray = @()
-$mountedServers = invoke-sqlcmd -query $scope -ServerInstance $cms -ConnectionTimeout 10 | select server_name
-Foreach ($mountedServer in $mountedServers.server_name) {
-write-host $mountedServer
-if ((Test-Connection -Quiet $mountedServer.Split('\')[0]) -eq -$true){
-Try{
-$Volumes = Get-WmiObject -ComputerName $mountedServer.Split('\')[0] win32_volume | Where-Object {$_.Capacity -gt 0}
-}
-catch {
-"Error grabbing Volumes from $mountedServer"
-#Continue
-}
-$messageObj = "" | select $format
-Foreach ($Volume in $Volumes){
+function Get-InstanceDisks {
+    [cmdletbinding()]
+    param(
+        [string]$scope, $cms, $outputFile, $format,
+        [decimal]$cutoff
+    )
+    Clear-Content $outputFile
+    $messageArray = @()
+    $mountedServers = invoke-sqlcmd -query $scope -ServerInstance $cms -ConnectionTimeout 10 | Select-Object server_name
+    Foreach ($mountedServer in $mountedServers.server_name) {
+        write-host $mountedServer
+        if ((Test-Connection -Quiet $mountedServer.Split('\')[0]) -eq - $true) {
+            Try {
+                $Volumes = Get-WmiObject -ComputerName $mountedServer.Split('\')[0] win32_volume | Where-Object {$_.Capacity -gt 0}
+            }
+            catch {
+                "Error grabbing Volumes from $mountedServer"
+                #Continue
+            }
+            $messageObj = "" | Select-Object $format
+            Foreach ($Volume in $Volumes) {
 
-If ($Volume.Label -ne "System Reserved" -or $Volume.Label -ne "System"){
-$FreeSpace = ([math]::round(($Volume.FreeSpace / 1073741824),2))
-$TotalSpace = ([math]::round(($Volume.Capacity / 1073741824),2))
-$UsedPercentage = 100-(($FreeSpace/$TotalSpace)*100)
-$driveName = $Volume.Label -replace ' ',''
+                If ($Volume.Label -ne "System Reserved" -or $Volume.Label -ne "System") {
+                    $FreeSpace = ([math]::round(($Volume.FreeSpace / 1073741824), 2))
+                    $TotalSpace = ([math]::round(($Volume.Capacity / 1073741824), 2))
+                    $UsedPercentage = 100 - (($FreeSpace / $TotalSpace) * 100)
+                    $driveName = $Volume.Label -replace ' ', ''
 
-$messageObj.Server_name = $mountedServer
-$messageObj.UsedPercentage = $UsedPercentage
-$messageObj.driveName = $driveName
+                    $messageObj.Server_name = $mountedServer
+                    $messageObj.UsedPercentage = $UsedPercentage
+                    $messageObj.driveName = $driveName
 
 
-If ($messageObj.UsedPercentage -gt $cutoff){
-$messageArray += $messageObj | Select-Object $format
-}
-}}
+                    If ($messageObj.UsedPercentage -gt $cutoff) {
+                        $messageArray += $messageObj | Select-Object $format
+                    }
+                }
+            }
 
-$messageArray | Sort-Object -Property UsedPercentage -Descending| Export-Csv $outputFile -NoTypeInformation -ErrorAction SilentlyContinue }}
+            $messageArray | Sort-Object -Property UsedPercentage -Descending| Export-Csv $outputFile -NoTypeInformation -ErrorAction SilentlyContinue 
+        }
+    }
 
 }
 Function Send-DailyChecks {
@@ -89,42 +93,44 @@ Function Send-DailyChecks {
     "<BR>" + "<b>Failed AG DBs:</b><BR>" + (import-csv -path $agOutputFile| convertto-html -fragment) +
     "<BR>" + "<b>Jobs that failed their last run:</b><BR>" + (import-csv -path $jobOutputFile | ConvertTo-Html -Fragment) +
     "<BR>" + "<b>Disabled DBA Jobs:</b><BR>" + (import-csv -path $dbaJobOutputFile | ConvertTo-Html -Fragment) +
-    "<BR>" + "<b>Disks over 80%:</b><BR>" + (import-csv -path $mountSpaceOutputFile | ConvertTo-Html -Fragment) +
+    "<BR>" + "<b>Disks over 80%:</b><BR>" + (import-csv -path $mountSpaceOutputFile | sort-object used_space_pct -descending | ConvertTo-Html -Fragment) +
     "<BR>" + "<b>Backups out of Retention:</b><BR>" + (import-csv -path $fullRetentionOutputFile | ConvertTo-Html -Fragment) +
     $bodyLower
 
     $Body | out-file $reportPath"Daily Report.html"
-    try{Send-MailMessage -From $fromAddress -to $SendTo -Subject $Subject -Bodyashtml $Body -SmtpServer $SMTPRelay -Credential $anonCredentials -ErrorAction Stop
-        }
-    catch{$friendlyError = "Message Send failed to $SMTPRelay"
-    $friendlyError
-    Log-Error -reportDirectory $reportPath -cleanError $friendlyError -fullError $_.Exception
+    try {
+        Send-MailMessage -From $fromAddress -to $SendTo -Subject $Subject -Bodyashtml $Body -SmtpServer $SMTPRelay -Credential $anonCredentials -ErrorAction Stop
+    }
+    catch {
+        $friendlyError = "Message Send failed to $SMTPRelay"
+        $friendlyError
+        Add-ErrorItem -reportDirectory $reportPath -cleanError $friendlyError -fullError $_.Exception
     }
     
 }
-Function Log-Error {
+Function Add-ErrorItem {
     [cmdletbinding()]
     Param (
         [string] $reportDirectory, $cleanError, $fullError
     )
     $timeStamp = get-date -format g
-    $dirtyOutput = "$cleanError","$timeStamp", "$fullError"
+    $dirtyOutput = "$cleanError", "$timeStamp", "$fullError"
     $cleanOutput = $dirtyOutput | Out-String
 
     $cleanOutPut | Add-Content $reportDirectory"errorlog.txt"
     #debug purposes only
     #Write-Host $cleanOutput
-    }
+}
 
 cd c:
 
 #Path and pertinent Variables
-$reportPath ="\\networkshare\sharepath\dailyReturns\"
-$agOutputFile = $reportPath+"reports\agDailyReport.txt"
-$mountSpaceOutputFile = $reportPath+"reports\diskReporting.txt"
-$jobOutputFile = $reportPath+"reports\jobFails.txt"
-$dbaJobOutputFile = $reportPath+"reports\dbaJobFails.txt" 
-$fullRetentionOutputFile = $reportPath+"reports\fullRetention.txt"
+$reportPath = "\\networkshare\sharepath\dailyReturns\"
+$agOutputFile = $reportPath + "reports\agDailyReport.txt"
+$mountSpaceOutputFile = $reportPath + "reports\diskReporting.txt"
+$jobOutputFile = $reportPath + "reports\jobFails.txt"
+$dbaJobOutputFile = $reportPath + "reports\dbaJobFails.txt" 
+$fullRetentionOutputFile = $reportPath + "reports\fullRetention.txt"
 $bodyUpper = Get-Content $reportPath"html\bodyUpper.txt" -raw
 $bodyLower = Get-Content $reportPath"html\bodyLower.txt" -raw
 
@@ -141,7 +147,7 @@ $failedJobFormat = 'Server_name', 'Job_name', 'Time_Run'
 $dbaJobFormat = 'Server_Name', 'Name', 'Date_Modified'
 $diskFormat = 'Server_Name', 'UsedPercentage', 'DriveName'
 $fullRetentionFormat = 'Server_Name', 'DatabaseName', 'FullBackup_DaysOld', 'DiffBackup_DaysOld', 'LogBackup_MinutesOld'
-$diskTSQLFormat = 'Server_Name','used_space_pct','volume_mount_point','total_gb','available_gb'
+$diskTSQLFormat = 'Server_Name', 'used_space_pct', 'volume_mount_point', 'total_gb', 'available_gb'
 
 #Query Variables
 $allQuery = "select server_name from msdb.dbo.sysmanagement_shared_registered_servers 
