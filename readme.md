@@ -64,7 +64,7 @@
 > ```"<BR>" + "<b>Databases that are offline:</b><BR>" + (import-csv -path $newCheckOutputFile | ConvertTo-Html -Fragment) +```
 
 - Finally, call the daily check function
-> ```Invoke-DailyCheck -scope $allQuery -cms $cms -Query $newCheckQuery -outputFile $newCheckOutputFile -checkname DB 'State Check' -format $newFormat```
+> ```Invoke-DailyCheck -scope $allQuery -cms $cms -Query $newCheckQuery -outputFile $newCheckOutputFile -checkname 'DB State Check' -format $newFormat```
 
 Scheduling:
 We currently schedule using a SQL Agent Job which runs daily. In order to ensure maximum compatibility in our secured environment, we copy the script down from the network, call PowerShell using our local copy, then at finish delete the local copy. A copy of this job is included in the repo
