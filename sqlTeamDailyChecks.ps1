@@ -97,7 +97,7 @@ Function Send-DailyChecks {
     "<BR>" + "<b>Backups out of Retention:</b><BR>" + (import-csv -path $fullRetentionOutputFile | ConvertTo-Html -Fragment) +
     $bodyLower
 
-    $Body | out-file $reportPath"Daily Report.html"
+    $Body | out-file $reportPath"Daily_Report.html"
     try {
         Send-MailMessage -From $fromAddress -to $SendTo -Subject $Subject -Bodyashtml $Body -SmtpServer $SMTPRelay -Credential $anonCredentials -ErrorAction Stop
     }
@@ -217,7 +217,7 @@ $retentionQuery = "IF OBJECT_ID('tempdb..#retention_checks') IS NOT NULL DROP TA
                 from sys.databases d
                 where d.name <> 'tempdb'
                 and d.state_desc = 'ONLINE'
-                and sys.fn_hadr_backup_is_preferred_replica (d.name) = 1;
+                and (sys.fn_hadr_is_primary_replica (d.name) = 1 or sys.fn_hadr_is_primary_replica (d.name) is null);
                 
 
                 update #retention_checks set LastFullBackupDate = isnull((select MAX(backup_finish_date) from msdb..backupset where type = 'D' and #retention_checks.databasename = database_name ),'2000-01-01 00:00:00.001');
