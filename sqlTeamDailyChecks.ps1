@@ -131,8 +131,8 @@ $mountSpaceOutputFile = $reportPath + "reports\diskReporting.txt"
 $jobOutputFile = $reportPath + "reports\jobFails.txt"
 $dbaJobOutputFile = $reportPath + "reports\dbaJobFails.txt" 
 $fullRetentionOutputFile = $reportPath + "reports\fullRetention.txt"
-$bodyUpper = Get-Content $reportPath"html\bodyUpper.txt" -raw
-$bodyLower = Get-Content $reportPath"html\bodyLower.txt" -raw
+$bodyUpper = Get-Content $reportPath"html\bodyUpper.html" -raw
+$bodyLower = Get-Content $reportPath"html\bodyLower.html" -raw
 
 $smtp = "smtp-relay.domain.com"
 $sendToAll = "<DataCenter_Database@domain.com>"
