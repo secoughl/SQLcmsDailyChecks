@@ -19,7 +19,7 @@
 | Variable | Description |
 | ----- | ----- |
 | $smtp | Your SMTP Relay |
-| $sendToAll | The Distribution Group you would like the Daily email to be sent to |
+| $sendToAll | The Distribution Group you would like the Daily email to be sent to. Multiple addresses should be seperated by commas: "email1@company.com","email2@company.com" |
 | $sendToTest | A single DBA's email should you need for testing purposes |
 | $sendFrom | Email address the reports should come from |
 | $cms | The server\instance name of your Central Management Server |
