@@ -89,15 +89,21 @@ Function Send-DailyChecks {
     $anonCredentials = New-Object System.Management.Automation.PSCredential($anonUsername, $anonPassword)
     $Subject = "SQL Daily Checks Completed, see attached"
 
+    If ($Null -ne (Get-Content -Path $notificationOutputFile)) {
+        Add-Content -Path $notificationOutputFile "<b>Please check $notificationOutputFile for details</b><BR>"
+        }
+
     $Body = $bodyUpper +
     "<BR>" + "<b>Failed AG DBs:</b><BR>" + (import-csv -path $agOutputFile| convertto-html -fragment) +
     "<BR>" + "<b>Jobs that failed their last run:</b><BR>" + (import-csv -path $jobOutputFile | ConvertTo-Html -Fragment) +
     "<BR>" + "<b>Disabled DBA Jobs:</b><BR>" + (import-csv -path $dbaJobOutputFile | ConvertTo-Html -Fragment) +
     "<BR>" + "<b>Disks over 80%:</b><BR>" + (import-csv -path $mountSpaceOutputFile | sort-object used_space_pct -descending | ConvertTo-Html -Fragment) +
     "<BR>" + "<b>Backups out of Retention:</b><BR>" + (import-csv -path $fullRetentionOutputFile | ConvertTo-Html -Fragment) +
+    "<BR>" + "<b>Failed Checks:</b><BR>" + (Get-Content -Path $notificationOutputFile) +
     $bodyLower
 
     $Body | out-file $reportPath"Daily_Report.html"
+    
     try {
         Send-MailMessage -From $fromAddress -to $SendTo -Subject $Subject -Bodyashtml $Body -SmtpServer $SMTPRelay -Credential $anonCredentials -ErrorAction Stop
     }
@@ -116,10 +122,11 @@ Function Add-ErrorItem {
     $timeStamp = get-date -format g
     $dirtyOutput = "$cleanError", "$timeStamp", "$fullError"
     $cleanOutput = $dirtyOutput | Out-String
+    $notificationOutput = "$cleanError"+"<BR>" 
 
     $cleanOutPut | Add-Content $reportDirectory"errorlog.txt"
-    #debug purposes only
-    #Write-Host $cleanOutput
+    $notificationOutput | Add-Content $notificationOutputFile
+    
 }
 
 cd c:
@@ -131,6 +138,7 @@ $mountSpaceOutputFile = $reportPath + "reports\diskReporting.txt"
 $jobOutputFile = $reportPath + "reports\jobFails.txt"
 $dbaJobOutputFile = $reportPath + "reports\dbaJobFails.txt" 
 $fullRetentionOutputFile = $reportPath + "reports\fullRetention.txt"
+$notificationOutputFile = $reportPath + "reports\notificationOutput.txt"
 $bodyUpper = Get-Content $reportPath"html\bodyUpper.html" -raw
 $bodyLower = Get-Content $reportPath"html\bodyLower.html" -raw
 
@@ -140,6 +148,7 @@ $sendToTest = "Sean Coughlin <sean.coughlin@domain.com>"
 $sendFrom = "SQL Daily Checks <dailycheck@domain.com>"
 $cms = 'CMSSQLSERVER'
 $diskCutOff = 80
+
 
 #Formatting variables for CSV output (which are then read back in for emailing)
 $agFormat = 'replica_server_name', 'avg_name', 'db_name', 'db_sync_health'
@@ -151,7 +160,7 @@ $diskTSQLFormat = 'Server_Name', 'used_space_pct', 'volume_mount_point', 'total_
 
 #Query Variables
 $allQuery = "select server_name from msdb.dbo.sysmanagement_shared_registered_servers 
-            where server_group_id not in ('26','27','28') and server_name not like '%OFF%'"
+            where server_name not like '%OFF'"
 $testQuery = "select server_name from msdb.dbo.sysmanagement_shared_registered_servers 
              where server_name like 'Server_Name_here'"
 $agQuery = "if exists (select name from sys.sysobjects where name = 'dm_hadr_availability_replica_states')
@@ -248,6 +257,8 @@ $diskTSQL = "SELECT DISTINCT
 	where 100-(CONVERT(DECIMAL(18,2), vs.available_bytes * 1. / vs.total_bytes * 100.)) > $diskCutOff
 	ORDER BY vs.volume_mount_point OPTION (RECOMPILE);"
 #
+Clear-Content $notificationOutputFile
+
 Invoke-DailyCheck -scope $allQuery -cms $cms -Query $agQuery -outputFile $agOutputFile -checkname 'AG Check' -format $agFormat 
 Invoke-DailyCheck -scope $allQuery -cms $cms -Query $failedJobQuery -outputFile $jobOutputFile -checkname 'Failed Job Check' -format $failedJobFormat
 Invoke-DailyCheck -scope $allQuery -cms $cms -Query $dbaDisabledJobQuery -outputFile $dbaJobOutputFile -checkname 'Disabled Job Check' -format $dbaJobFormat
