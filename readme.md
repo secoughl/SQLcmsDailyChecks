@@ -74,3 +74,4 @@ We currently schedule using a SQL Agent Job which runs daily. In order to ensure
 **9/18/2018** disks percentage is now handled via TSQL, it is no different than any other use of Invoke-DailyCheck. The legacy (remoteWMI) version will be kept in the code for legacy purposes<br>
 **9/18/2018** errors now result in a call to Get-Error which timestamps them and dumps them to a text file in the root directory you specify<br>
 **9/18/2018** An HTML file is also genereated at the root directory you specify in cases when an SMTP Relay isn't available<br>
+**11/9/2018** Simple, clean failures are now added to the end of the email with a link to the full error file, in the case of downed servers or missing permissions. General Housekeeping<br>
