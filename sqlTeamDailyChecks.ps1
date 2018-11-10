@@ -90,7 +90,7 @@ Function Send-DailyChecks {
     $Subject = "SQL Daily Checks Completed, see attached"
 
     If ($Null -ne (Get-Content -Path $notificationOutputFile)) {
-        Add-Content -Path $notificationOutputFile "<b>Please check $notificationOutputFile for details</b><BR>"
+        Add-Content -Path $notificationOutputFile "<b>Please check $errorLog for details</b><BR>"
         }
 
     $Body = $bodyUpper +
@@ -124,7 +124,7 @@ Function Add-ErrorItem {
     $cleanOutput = $dirtyOutput | Out-String
     $notificationOutput = "$cleanError"+"<BR>" 
 
-    $cleanOutPut | Add-Content $reportDirectory"errorlog.txt"
+    $cleanOutPut | Add-Content $errorLog
     $notificationOutput | Add-Content $notificationOutputFile
     
 }
@@ -139,6 +139,7 @@ $jobOutputFile = $reportPath + "reports\jobFails.txt"
 $dbaJobOutputFile = $reportPath + "reports\dbaJobFails.txt" 
 $fullRetentionOutputFile = $reportPath + "reports\fullRetention.txt"
 $notificationOutputFile = $reportPath + "reports\notificationOutput.txt"
+$errorLog = $reportPath + "errorlog.txt"
 $bodyUpper = Get-Content $reportPath"html\bodyUpper.html" -raw
 $bodyLower = Get-Content $reportPath"html\bodyLower.html" -raw
 
