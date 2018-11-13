@@ -262,6 +262,6 @@ Invoke-DailyCheck -scope $allQuery -cms $cms -Query $retentionQuery -outputFile 
 Invoke-DailyCheck -scope $allQuery -cms $cms -Query $diskTSQL -outputFile $mountSpaceOutputFile -checkname 'Disk Check' -format $diskTSQLFormat
 #>
 
-Send-DailyChecks -sendTo $sendToTest -fromAddress $sendFrom -SMTPRelay $smtp
+Send-DailyChecks -sendTo $sendToAll -fromAddress $sendFrom -SMTPRelay $smtp
 
 
