@@ -41,7 +41,7 @@ try {
     import-module sqlps -DisableNameChecking    
 }
 catch {
-    "Problem importing sqlps, please ensure it exists"
+    "Problem importing sqlps, please install it from aka.ms/sqlps"
 }
 
 
@@ -70,7 +70,7 @@ function Invoke-DailyCheck {
 
         finally {$jobMessage | Export-Csv $outputFile -NoTypeInformation -ErrorAction SilentlyContinue}
     }
-}
+}# Invoke-DailyCheck
 Function Send-DailyChecks {
     [cmdletbinding()]
     Param (
@@ -99,6 +99,8 @@ Function Send-DailyChecks {
     $Body | out-file $reportPath"Daily_Report.html"
     
     try {
+        # -UseSsl is a supported flag if required
+        # If your SMTP Relay requires actual authentication, feed it into the $anonUsername and $anonPassword variables and it will be built into a credential automatically
         Send-MailMessage -From $fromAddress -to $SendTo -Subject $Subject -Bodyashtml $Body -SmtpServer $SMTPRelay -Credential $anonCredentials -ErrorAction Stop
     }
     catch {
@@ -107,7 +109,7 @@ Function Send-DailyChecks {
         Add-ErrorItem -reportDirectory $reportPath -cleanError $friendlyError -fullError $_.Exception
     }
     
-}
+}# Send-DailyChecks
 Function Add-ErrorItem {
     [cmdletbinding()]
     Param (
@@ -121,7 +123,7 @@ Function Add-ErrorItem {
     $cleanOutPut | Add-Content $errorLog
     $notificationOutput | Add-Content $notificationOutputFile
     
-}
+}# Add-ErrorItem
 
 cd c:
 
