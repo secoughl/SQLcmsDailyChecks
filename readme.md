@@ -1,7 +1,7 @@
 ## Setup<br>
 
 **1. Deploy all files to a network or local location that the Account performing the checks can access.<br>
-2. Update SQLDailyChecks.ps1 (Lines 121-221) in the following manner to fit your environment:**<br>
+2. Update SQLDailyChecks.ps1 (Lines 129-138) in the following manner to fit your environment:**<br>
 
 | Variable | Description |
 | ----- | ----- |
@@ -11,10 +11,12 @@
 | $jobOutputFile | File to write results from Last Failed Jobs Check |
 | $dbaJobOutputFile | File to write results from Disabled DBA Jobs Check |
 | $fullRetentionOutputFile | File to write results from Backup Retention Check |
+| $notificationOutputFile | File to write one-line friendly failures to |
+| $errorLog | File to write full errors out to |
 | $bodyUpper | First half of HTML template |
 | $bodyLower | Second half of HTML Template |
 
-**3. Update SQLDailyChecks.ps1 (Lines 131-136) in the following manner to fit your environment:**<br>
+**3. Update SQLDailyChecks.ps1 (Lines 140-145) in the following manner to fit your environment:**<br>
 
 | Variable | Description |
 | ----- | ----- |
@@ -25,7 +27,7 @@
 | $cms | The server\instance name of your Central Management Server |
 | $diskCutOff | When to start showing disk resultes in the e-mail |
 
-**4. _(Optional)_ Update SQLDailyChecks.ps1 (Lines 139-222) to modify the baked-in check queries:**<br>
+**4. _(Optional)_ Update SQLDailyChecks.ps1 (Lines 157-254) to modify the baked-in check queries:**<br>
 
 | Query Variable | Suggestion |
 | ---- | ---- |
