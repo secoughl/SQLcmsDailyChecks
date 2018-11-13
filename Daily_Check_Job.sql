@@ -1,7 +1,27 @@
-/****
-Example SQL Agent Job:
-Update the job step at line 44
-***/
+/*
+# -----------------------------------------------------------------------------
+#
+# Copyright (C) 2018 Microsoft Corporation
+#
+# Disclaimer:
+#   This is SAMPLE code that is NOT production ready. It is the sole intention of this code to provide a proof of concept as a
+#   learning tool for Microsoft Customers. Microsoft does not provide warranty for or guarantee any portion of this code
+#   and is NOT responsible for any affects it may have on any system it is executed on  or environment it resides within.
+#   Please use this code at your own discretion!
+# Additional legalese:
+#   This Sample Code is provided for the purpose of illustration only and is not intended to be used in a production environment.
+#   THIS SAMPLE CODE AND ANY RELATED INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED,
+#   INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
+#   We grant You a nonexclusive, royalty-free right to use and modify the Sample Code and to reproduce and distribute
+#   the object code form of the Sample Code, provided that You agree:
+#       (i) to not use Our name, logo, or trademarks to market Your software product in which the Sample Code is embedded;
+#      (ii) to include a valid copyright notice on Your software product in which the Sample Code is embedded; and
+#     (iii) to indemnify, hold harmless, and defend Us and Our suppliers from and against any claims or lawsuits, including attorneys' fees,
+#           that arise or result from the use or distribution of the Sample Code.
+# -----------------------------------------------------------------------------
+# Example SQL Agent Job:
+# Update the job step at line 64
+*/
 
 USE [msdb]
 GO
@@ -41,7 +61,7 @@ EXEC @ReturnCode = msdb.dbo.sp_add_jobstep @job_id=@jobId, @step_name=N'Daily_Ch
 		@retry_attempts=0, 
 		@retry_interval=0, 
 		@os_run_priority=0, @subsystem=N'CmdExec', 
-		@command=N'copy \\netapp.domain.mil\Automation\sqlTeamDailyChecks.ps1 c:\temp\sqlTeamDailyChecks.ps1 /y && C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe c:\temp\sqlTeamDailyChecks.ps1 && del /f c:\temp\sqlTeamDailyChecks.ps1', 
+		@command=N'copy \\netapp.domain.com\Automation\sqlTeamDailyChecks.ps1 c:\temp\sqlTeamDailyChecks.ps1 /y && C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe c:\temp\sqlTeamDailyChecks.ps1 && del /f c:\temp\sqlTeamDailyChecks.ps1', 
 		@flags=0
 IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
 EXEC @ReturnCode = msdb.dbo.sp_update_job @job_id = @jobId, @start_step_id = 1

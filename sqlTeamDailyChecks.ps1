@@ -1,3 +1,42 @@
+# -----------------------------------------------------------------------------
+# Author:      Sean Coughlin, Microsoft
+# Date:        Sep 2018
+#
+# History:
+# Date         Name                     Comment
+# -----------  -----------------------  ----------------------------------------
+# 14 Sep 2018  Sean Coughlin (MSFT)     Created
+# 14 Sep 2018  Chad Churchwell (MSFT)   Initial TSQL Scripting
+# 18 Sep 2018  Sean Coughlin (MSFT) / Patrick Keisler (MSFT)     Disk Percentage handled by TSQL
+# 18 Sep 2018  Sean Coughlin (MSFT)     Get-Error Implimented, HTML Report Generation handled
+# 9 Nov 2018  Sean Coughlin (MSFT)      Failures now included in E-mail with link to errorlog
+# File Name:   sqlTeamDailyChecks.ps1
+#
+# Purpose:     PowerShell script to automate morning health checks.
+#
+# -----------------------------------------------------------------------------
+#
+# Copyright (C) 2018 Microsoft Corporation
+#
+# Disclaimer:
+#   This is SAMPLE code that is NOT production ready. It is the sole intention of this code to provide a proof of concept as a
+#   learning tool for Microsoft Customers. Microsoft does not provide warranty for or guarantee any portion of this code
+#   and is NOT responsible for any affects it may have on any system it is executed on  or environment it resides within.
+#   Please use this code at your own discretion!
+# Additional legalese:
+#   This Sample Code is provided for the purpose of illustration only and is not intended to be used in a production environment.
+#   THIS SAMPLE CODE AND ANY RELATED INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED,
+#   INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
+#   We grant You a nonexclusive, royalty-free right to use and modify the Sample Code and to reproduce and distribute
+#   the object code form of the Sample Code, provided that You agree:
+#       (i) to not use Our name, logo, or trademarks to market Your software product in which the Sample Code is embedded;
+#      (ii) to include a valid copyright notice on Your software product in which the Sample Code is embedded; and
+#     (iii) to indemnify, hold harmless, and defend Us and Our suppliers from and against any claims or lawsuits, including attorneys' fees,
+#           that arise or result from the use or distribution of the Sample Code.
+# -----------------------------------------------------------------------------
+
+
+
 try {
     import-module sqlps -DisableNameChecking    
 }
@@ -31,51 +70,6 @@ function Invoke-DailyCheck {
 
         finally {$jobMessage | Export-Csv $outputFile -NoTypeInformation -ErrorAction SilentlyContinue}
     }
-}
-#Including this remote-wmi as a fallback, functionality is replaced using TSQL from Patrick Keislers excellent morning check script
-function Get-InstanceDisks {
-    [cmdletbinding()]
-    param(
-        [string]$scope, $cms, $outputFile, $format,
-        [decimal]$cutoff
-    )
-    Clear-Content $outputFile
-    $messageArray = @()
-    $mountedServers = invoke-sqlcmd -query $scope -ServerInstance $cms -ConnectionTimeout 10 | Select-Object server_name
-    Foreach ($mountedServer in $mountedServers.server_name) {
-        write-host $mountedServer
-        if ((Test-Connection -Quiet $mountedServer.Split('\')[0]) -eq - $true) {
-            Try {
-                $Volumes = Get-WmiObject -ComputerName $mountedServer.Split('\')[0] win32_volume | Where-Object {$_.Capacity -gt 0}
-            }
-            catch {
-                "Error grabbing Volumes from $mountedServer"
-                #Continue
-            }
-            $messageObj = "" | Select-Object $format
-            Foreach ($Volume in $Volumes) {
-
-                If ($Volume.Label -ne "System Reserved" -or $Volume.Label -ne "System") {
-                    $FreeSpace = ([math]::round(($Volume.FreeSpace / 1073741824), 2))
-                    $TotalSpace = ([math]::round(($Volume.Capacity / 1073741824), 2))
-                    $UsedPercentage = 100 - (($FreeSpace / $TotalSpace) * 100)
-                    $driveName = $Volume.Label -replace ' ', ''
-
-                    $messageObj.Server_name = $mountedServer
-                    $messageObj.UsedPercentage = $UsedPercentage
-                    $messageObj.driveName = $driveName
-
-
-                    If ($messageObj.UsedPercentage -gt $cutoff) {
-                        $messageArray += $messageObj | Select-Object $format
-                    }
-                }
-            }
-
-            $messageArray | Sort-Object -Property UsedPercentage -Descending| Export-Csv $outputFile -NoTypeInformation -ErrorAction SilentlyContinue 
-        }
-    }
-
 }
 Function Send-DailyChecks {
     [cmdletbinding()]
@@ -144,7 +138,7 @@ $bodyUpper = Get-Content $reportPath"html\bodyUpper.html" -raw
 $bodyLower = Get-Content $reportPath"html\bodyLower.html" -raw
 
 $smtp = "smtp-relay.domain.com"
-$sendToAll = "<DataCenter_Database@domain.com>"
+$sendToAll = "<DataCenter_Database_Distro@domain.com>"
 $sendToTest = "Sean Coughlin <sean.coughlin@domain.com>"
 $sendFrom = "SQL Daily Checks <dailycheck@domain.com>"
 $cms = 'CMSSQLSERVER'
