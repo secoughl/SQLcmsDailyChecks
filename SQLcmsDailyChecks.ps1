@@ -10,7 +10,7 @@
 # 18 Sep 2018  Sean Coughlin (MSFT) / Patrick Keisler (MSFT)     Disk Percentage handled by TSQL
 # 18 Sep 2018  Sean Coughlin (MSFT)     Get-Error Implimented, HTML Report Generation handled
 # 9 Nov 2018  Sean Coughlin (MSFT)      Failures now included in E-mail with link to errorlog
-# File Name:   sqlTeamDailyChecks.ps1
+# File Name:   SQLcmsDailyChecks.ps1
 #
 # Purpose:     PowerShell script to automate morning health checks.
 #
