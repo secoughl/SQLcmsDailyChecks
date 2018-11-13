@@ -1,7 +1,7 @@
 ## Setup<br>
 
 **1. Deploy all files to a network or local location that the Account performing the checks can access.<br>
-2. Update SQLDailyChecks.ps1 (Lines 129-138) in the following manner to fit your environment:**<br>
+2. Update SQLcmsDailyChecks.ps1 (Lines 129-138) in the following manner to fit your environment:**<br>
 
 | Variable | Description |
 | ----- | ----- |
@@ -16,7 +16,7 @@
 | $bodyUpper | First half of HTML template |
 | $bodyLower | Second half of HTML Template |
 
-**3. Update SQLDailyChecks.ps1 (Lines 140-145) in the following manner to fit your environment:**<br>
+**3. Update SQLcmsDailyChecks.ps1 (Lines 140-145) in the following manner to fit your environment:**<br>
 
 | Variable | Description |
 | ----- | ----- |
@@ -27,7 +27,7 @@
 | $cms | The server\instance name of your Central Management Server |
 | $diskCutOff | When to start showing disk resultes in the e-mail |
 
-**4. _(Optional)_ Update SQLDailyChecks.ps1 (Lines 157-254) to modify the baked-in check queries:**<br>
+**4. _(Optional)_ Update SQLcmsDailyChecks.ps1 (Lines 157-254) to modify the baked-in check queries:**<br>
 
 | Query Variable | Suggestion |
 | ---- | ---- |

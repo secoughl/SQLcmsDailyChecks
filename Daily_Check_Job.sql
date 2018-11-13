@@ -61,7 +61,7 @@ EXEC @ReturnCode = msdb.dbo.sp_add_jobstep @job_id=@jobId, @step_name=N'Daily_Ch
 		@retry_attempts=0, 
 		@retry_interval=0, 
 		@os_run_priority=0, @subsystem=N'CmdExec', 
-		@command=N'copy \\netapp.domain.com\Automation\sqlTeamDailyChecks.ps1 c:\temp\sqlTeamDailyChecks.ps1 /y && C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe c:\temp\sqlTeamDailyChecks.ps1 && del /f c:\temp\sqlTeamDailyChecks.ps1', 
+		@command=N'copy \\netapp.domain.com\Automation\SQLcmsDailyChecks.ps1 c:\temp\SQLcmsDailyChecks.ps1 /y && C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe c:\temp\SQLcmsDailyChecks.ps1 && del /f c:\temp\SQLcmsDailyChecks.ps1', 
 		@flags=0
 IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
 EXEC @ReturnCode = msdb.dbo.sp_update_job @job_id = @jobId, @start_step_id = 1

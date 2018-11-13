@@ -10,7 +10,7 @@
 # 18 Sep 2018  Sean Coughlin (MSFT) / Patrick Keisler (MSFT)     Disk Percentage handled by TSQL
 # 18 Sep 2018  Sean Coughlin (MSFT)     Get-Error Implimented, HTML Report Generation handled
 # 9 Nov 2018  Sean Coughlin (MSFT)      Failures now included in E-mail with link to errorlog
-# File Name:   sqlTeamDailyChecks.ps1
+# File Name:   SQLcmsDailyChecks.ps1
 #
 # Purpose:     PowerShell script to automate morning health checks.
 #
@@ -222,7 +222,7 @@ $retentionQuery = "IF OBJECT_ID('tempdb..#retention_checks') IS NOT NULL DROP TA
                 where d.name <> 'tempdb'
                 and d.state_desc = 'ONLINE'
                 --enable if 2014+ to only care about primary replicas
-		--and (sys.fn_hadr_is_primary_replica (d.name) = 1 or sys.fn_hadr_is_primary_replica (d.name) is null);
+		        --and (sys.fn_hadr_is_primary_replica (d.name) = 1 or sys.fn_hadr_is_primary_replica (d.name) is null);
                 
 
                 update #retention_checks set LastFullBackupDate = isnull((select MAX(backup_finish_date) from msdb..backupset where type = 'D' and #retention_checks.databasename = database_name ),'2000-01-01 00:00:00.001');
