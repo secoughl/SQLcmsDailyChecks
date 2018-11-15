@@ -255,7 +255,9 @@ $diskTSQL = "SELECT DISTINCT
 	where 100-(CONVERT(DECIMAL(18,2), vs.available_bytes * 1. / vs.total_bytes * 100.)) > $diskCutOff
 	ORDER BY vs.volume_mount_point OPTION (RECOMPILE);"
 #
-Clear-Content $notificationOutputFile
+if (test-path $notificationOutputFile) {
+        Clear-Content $notificationOutputFile
+}
 
 Invoke-DailyCheck -scope $allQuery -cms $cms -Query $agQuery -outputFile $agOutputFile -checkname 'AG Check' -format $agFormat 
 Invoke-DailyCheck -scope $allQuery -cms $cms -Query $failedJobQuery -outputFile $jobOutputFile -checkname 'Failed Job Check' -format $failedJobFormat
